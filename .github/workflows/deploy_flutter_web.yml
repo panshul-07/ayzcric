@@ -27,6 +27,9 @@ jobs:
         with:
           channel: stable
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Resolve dependencies
         working-directory: cricket_manager_app
         run: flutter pub get
