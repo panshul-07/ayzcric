@@ -514,6 +514,14 @@ class LiveInningsState {
   final Map<String, int> batterBalls = <String, int>{};
   final Set<String> outBatters = <String>{};
   final List<int> runProgression = <int>[];
+  final List<int> overRuns = <int>[];
+  int currentOverRuns = 0;
+  int boundaries = 0;
+  int sixes = 0;
+  int dots = 0;
+  int singles = 0;
+  int doubles = 0;
+  int triples = 0;
   final Map<String, int> shotZones = <String, int>{
     'fine': 0,
     'square': 0,
@@ -530,4 +538,6 @@ class LiveInningsState {
   Player get striker => battingOrder[strikerIndex];
 
   Player get nonStriker => battingOrder[nonStrikerIndex];
+
+  double get runRate => balls == 0 ? 0 : (runs * 6.0 / balls);
 }

@@ -59,6 +59,21 @@ class LiveMatchEngine {
   LiveInningsState get secondInnings => _secondInnings;
 
   bool get firstInningsDone => _firstInnings.complete;
+  int? get target => _target;
+
+  double projectedScoreFor(LiveInningsState innings) {
+    if (innings.balls == 0) return 0;
+    return innings.runRate * (innings.maxBalls / 6.0);
+  }
+
+  double? requiredRunRateFor(LiveInningsState innings) {
+    if (_target == null || innings != _secondInnings || innings.complete) {
+      return null;
+    }
+    final remaining = (_target! - innings.runs).clamp(0, 9999);
+    final ballsLeft = max(1, innings.maxBalls - innings.balls);
+    return (remaining * 6.0) / ballsLeft;
+  }
 
   List<Player> _bowlingOrderFor(String teamName) {
     final squad = teamName == userTeamName ? _userXI : _aiXI;
@@ -222,6 +237,7 @@ class LiveMatchEngine {
       innings.batterBalls[batter.id] =
           (innings.batterBalls[batter.id] ?? 0) + 1;
       innings.outBatters.add(batter.id);
+      innings.dots += 1;
       innings.runProgression.add(innings.runs);
 
       if (innings.nextBatterIndex <= innings.battingOrder.length - 1) {
@@ -231,6 +247,7 @@ class LiveMatchEngine {
     } else {
       innings.runs += run;
       innings.balls += 1;
+      innings.currentOverRuns += run;
       innings.batterRuns[batter.id] =
           (innings.batterRuns[batter.id] ?? 0) + run;
       innings.batterBalls[batter.id] =
@@ -240,6 +257,16 @@ class LiveMatchEngine {
       final zone = _pickShotZone(run);
       innings.shotZones[zone] = (innings.shotZones[zone] ?? 0) + 1;
 
+      if (run == 0) innings.dots += 1;
+      if (run == 1) innings.singles += 1;
+      if (run == 2) innings.doubles += 1;
+      if (run == 3) innings.triples += 1;
+      if (run == 4) innings.boundaries += 1;
+      if (run == 6) {
+        innings.boundaries += 1;
+        innings.sixes += 1;
+      }
+
       if (run.isOdd) {
         final tmp = innings.strikerIndex;
         innings.strikerIndex = innings.nonStrikerIndex;
@@ -248,9 +275,19 @@ class LiveMatchEngine {
     }
 
     if (innings.balls % 6 == 0 && !innings.complete) {
+      innings.overRuns.add(innings.currentOverRuns);
+      innings.currentOverRuns = 0;
       final tmp = innings.strikerIndex;
       innings.strikerIndex = innings.nonStrikerIndex;
       innings.nonStrikerIndex = tmp;
+    }
+
+    if (innings.complete && innings.balls % 6 != 0) {
+      final completedOvers = (innings.balls + 5) ~/ 6;
+      if (innings.overRuns.length < completedOvers) {
+        innings.overRuns.add(innings.currentOverRuns);
+      }
+      innings.currentOverRuns = 0;
     }
 
     if (_target != null &&
