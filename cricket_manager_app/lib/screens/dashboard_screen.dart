@@ -150,9 +150,7 @@ class DashboardScreen extends StatelessWidget {
                     rows: [
                       for (int i = 0; i < sortedTable.length; i++)
                         DataRow(
-                          color:
-                              sortedTable[i].name == controller.userTeam.name ||
-                                  sortedTable[i].name == 'My Franchise'
+                          color: sortedTable[i].name == controller.userTeam.name
                               ? WidgetStatePropertyAll(
                                   Theme.of(context).colorScheme.primaryContainer
                                       .withValues(alpha: 0.6),

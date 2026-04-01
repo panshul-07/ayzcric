@@ -8,16 +8,16 @@ class SeedFactory {
   final Random _random;
 
   static const List<String> clubNames = <String>[
-    'Mumbai Meteors',
-    'Delhi Dynamos',
-    'Bengal Blazers',
-    'Chennai Cyclones',
-    'Punjab Pulse',
-    'Hyderabad Hawks',
-    'Rajasthan Royalsmiths',
-    'Lucknow Legends',
-    'Gujarat Gladiators',
-    'Kolkata Kingsguard',
+    'Chennai Super Kings',
+    'Delhi Capitals',
+    'Gujarat Titans',
+    'Kolkata Knight Riders',
+    'Lucknow Super Giants',
+    'Mumbai Indians',
+    'Punjab Kings',
+    'Rajasthan Royals',
+    'Royal Challengers Bengaluru',
+    'Sunrisers Hyderabad',
   ];
 
   static const List<String> firstNames = <String>[
@@ -173,8 +173,8 @@ class SeedFactory {
     );
 
     return TeamProfile(
-      name: 'My Franchise',
-      shortName: 'MYF',
+      name: 'Royal Challengers Bengaluru',
+      shortName: 'RCB',
       squad: players,
       cashCr: 100,
       fans: 64000,
@@ -192,8 +192,8 @@ class SeedFactory {
   List<TeamStanding> createStandings(String userTeamName) {
     return clubNames.map((String club) {
       if (club == userTeamName) {
-        return const TeamStanding(
-          name: 'My Franchise',
+        return TeamStanding(
+          name: userTeamName,
           played: 0,
           wins: 0,
           losses: 0,

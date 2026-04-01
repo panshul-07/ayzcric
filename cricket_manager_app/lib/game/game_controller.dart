@@ -311,9 +311,7 @@ class GameController extends ChangeNotifier {
   }
 
   void _updateStandings(bool userWon, double nrrDelta, int margin) {
-    final userIdx = standings.indexWhere(
-      (s) => s.name == userTeam.name || s.name == 'My Franchise',
-    );
+    final userIdx = standings.indexWhere((s) => s.name == userTeam.name);
     if (userIdx != -1) {
       final userStanding = standings[userIdx];
       standings[userIdx] = userStanding.copyWith(
@@ -363,11 +361,7 @@ class GameController extends ChangeNotifier {
         return b.netRunRate.compareTo(a.netRunRate);
       });
 
-    final rank =
-        sorted.indexWhere(
-          (s) => s.name == userTeam.name || s.name == 'My Franchise',
-        ) +
-        1;
+    final rank = sorted.indexWhere((s) => s.name == userTeam.name) + 1;
     final top4Achieved = rank > 0 && rank <= 4;
 
     objectives = objectives.map((o) {
@@ -434,7 +428,7 @@ class GameController extends ChangeNotifier {
 
     final aiTeams = standings
         .map((s) => s.name)
-        .where((name) => name != userTeam.name && name != 'My Franchise')
+        .where((name) => name != userTeam.name)
         .toList();
 
     var active = _random.nextDouble() < 0.55;
