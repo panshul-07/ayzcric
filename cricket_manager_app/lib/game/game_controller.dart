@@ -133,6 +133,27 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<Player> _buildOpponentXI(String opponent) {
+    final players = <Player>[];
+    for (var i = 0; i < 11; i++) {
+      PlayerRole? forceRole;
+      if (i < 2) forceRole = PlayerRole.opener;
+      if (i == 2 || i == 3) forceRole = PlayerRole.anchor;
+      if (i == 4) forceRole = PlayerRole.wicketKeeper;
+      if (i >= 5 && i <= 7) forceRole = PlayerRole.allRounder;
+      if (i >= 8 && i <= 9) forceRole = PlayerRole.pacer;
+      if (i == 10) forceRole = PlayerRole.spinner;
+      players.add(
+        _seed.createPlayer(
+          id: '$opponent-$i',
+          forceRole: forceRole,
+          inXI: true,
+        ),
+      );
+    }
+    return players;
+  }
+
   void startNextMatch() {
     if (fired) {
       statusBanner = 'You were fired by the board. Restart your career.';
@@ -161,7 +182,7 @@ class GameController extends ChangeNotifier {
     liveMatch = LiveMatchEngine(
       format: matchFormat,
       userXI: xi,
-      aiXI: _seed.createTeamXI(fixture.opponent),
+      aiXI: _buildOpponentXI(fixture.opponent),
       userTeamName: userTeam.name,
       aiTeamName: fixture.opponent,
       random: _random,
