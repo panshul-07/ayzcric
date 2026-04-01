@@ -1,0 +1,873 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+
+import 'match_engine.dart';
+import 'models.dart';
+import 'seed_factory.dart';
+
+class GameController extends ChangeNotifier {
+  GameController() {
+    _initialize();
+  }
+
+  final Random _random = Random();
+  late final SeedFactory _seed = SeedFactory(_random);
+
+  late TeamProfile userTeam;
+  late List<TeamStanding> standings;
+  late List<Fixture> fixtures;
+  late List<AuctionLot> auctionLots;
+  late List<Player> youthAcademy;
+
+  final List<FinanceEntry> financeLedger = <FinanceEntry>[];
+  final List<String> careerLog = <String>[];
+
+  MatchFormat matchFormat = MatchFormat.t20;
+  int seasonYear = 2026;
+  int youthSignings = 0;
+  bool fired = false;
+
+  late List<BoardObjective> objectives;
+
+  LiveMatchEngine? liveMatch;
+  MatchResult? latestResult;
+  bool autoPlay = false;
+  Timer? _autoTimer;
+  bool _resultCommitted = false;
+
+  String statusBanner = 'Welcome, Chairman. Build your dynasty.';
+
+  void _initialize() {
+    userTeam = _seed.createUserTeam();
+    standings = _seed.createStandings(userTeam.name);
+    fixtures = _seed.createFixtures(userTeam.name);
+    auctionLots = _seed.createAuctionLots();
+    youthAcademy = _createYouthAcademy();
+    objectives = _defaultObjectives();
+
+    _log('Franchise initialized for season $seasonYear.');
+    _addFinance('Founding capital', 100.0, 'capital');
+    notifyListeners();
+  }
+
+  void disposeController() {
+    _autoTimer?.cancel();
+  }
+
+  List<Player> _createYouthAcademy() {
+    return List<Player>.generate(6, (int i) {
+      final raw = _seed.createPlayer(id: 'youth-$seasonYear-$i', inXI: false);
+      return raw.copyWith(
+        age: 15 + _random.nextInt(4),
+        overall: (raw.overall - 8).clamp(38, 90),
+        salaryCr: 0.12 + _random.nextDouble() * 0.25,
+        marketValueCr: 0.22 + _random.nextDouble() * 0.7,
+      );
+    });
+  }
+
+  List<BoardObjective> _defaultObjectives() {
+    return <BoardObjective>[
+      _seed.objective(
+        id: 'wins',
+        title: 'Win 9 League Matches',
+        description: 'Maintain consistency across the season.',
+        target: 9,
+      ),
+      _seed.objective(
+        id: 'fans',
+        title: 'Reach 95k Fanbase',
+        description: 'Grow your audience with performances and marketing.',
+        target: 95,
+      ),
+      _seed.objective(
+        id: 'youth',
+        title: 'Sign 2 U-23 Talents',
+        description: 'Invest in long-term squad value.',
+        target: 2,
+      ),
+      _seed.objective(
+        id: 'top4',
+        title: 'Finish in Top 4',
+        description: 'Qualify for playoffs this year.',
+        target: 1,
+      ),
+    ];
+  }
+
+  Fixture? get nextFixture {
+    for (final fixture in fixtures) {
+      if (!fixture.played) return fixture;
+    }
+    return null;
+  }
+
+  bool get seasonComplete => fixtures.every((f) => f.played);
+
+  int get matchesPlayed => fixtures.where((f) => f.played).length;
+
+  int get matchesRemaining => fixtures.length - matchesPlayed;
+
+  List<Player> get playingXI {
+    final xi = userTeam.squad
+        .where((p) => p.inPlayingXI && !p.injured)
+        .toList();
+    if (xi.length >= 11) return xi.take(11).toList();
+
+    final extras = userTeam.squad
+        .where((p) => !p.inPlayingXI && !p.injured)
+        .take(11 - xi.length);
+    return <Player>[...xi, ...extras];
+  }
+
+  void setFormat(MatchFormat format) {
+    if (liveMatch != null && !liveMatch!.completed) {
+      statusBanner = 'Finish current match before changing format.';
+      notifyListeners();
+      return;
+    }
+    matchFormat = format;
+    statusBanner = 'Match format switched to ${format.label}.';
+    notifyListeners();
+  }
+
+  List<Player> _buildOpponentXI(String opponent) {
+    final players = <Player>[];
+    for (var i = 0; i < 11; i++) {
+      PlayerRole? forceRole;
+      if (i < 2) forceRole = PlayerRole.opener;
+      if (i == 2 || i == 3) forceRole = PlayerRole.anchor;
+      if (i == 4) forceRole = PlayerRole.wicketKeeper;
+      if (i >= 5 && i <= 7) forceRole = PlayerRole.allRounder;
+      if (i >= 8 && i <= 9) forceRole = PlayerRole.pacer;
+      if (i == 10) forceRole = PlayerRole.spinner;
+      players.add(
+        _seed.createPlayer(
+          id: '$opponent-$i',
+          forceRole: forceRole,
+          inXI: true,
+        ),
+      );
+    }
+    return players;
+  }
+
+  void startNextMatch() {
+    if (fired) {
+      statusBanner = 'You were fired by the board. Restart your career.';
+      notifyListeners();
+      return;
+    }
+
+    final fixture = nextFixture;
+    if (fixture == null) {
+      statusBanner = 'No fixtures left in this season.';
+      notifyListeners();
+      return;
+    }
+
+    final xi = playingXI;
+    if (xi.length < 11) {
+      statusBanner = 'You need at least 11 fit players.';
+      notifyListeners();
+      return;
+    }
+
+    latestResult = null;
+    _resultCommitted = false;
+    autoPlay = false;
+
+    liveMatch = LiveMatchEngine(
+      format: matchFormat,
+      userXI: xi,
+      aiXI: _buildOpponentXI(fixture.opponent),
+      userTeamName: userTeam.name,
+      aiTeamName: fixture.opponent,
+      random: _random,
+    );
+
+    statusBanner =
+        'Round ${fixture.round}: ${fixture.home ? 'Home' : 'Away'} vs ${fixture.opponent}';
+    notifyListeners();
+  }
+
+  void stepBall() {
+    final match = liveMatch;
+    if (match == null) {
+      statusBanner = 'Start a match first.';
+      notifyListeners();
+      return;
+    }
+
+    match.stepBall();
+    if (match.completed && !_resultCommitted) {
+      _commitMatchResult();
+    }
+
+    notifyListeners();
+  }
+
+  void toggleAutoPlay() {
+    final match = liveMatch;
+    if (match == null || match.completed) {
+      return;
+    }
+
+    autoPlay = !autoPlay;
+    _autoTimer?.cancel();
+
+    if (autoPlay) {
+      _autoTimer = Timer.periodic(const Duration(milliseconds: 240), (_) {
+        if (liveMatch == null || liveMatch!.completed) {
+          autoPlay = false;
+          _autoTimer?.cancel();
+          notifyListeners();
+          return;
+        }
+        stepBall();
+      });
+    }
+
+    notifyListeners();
+  }
+
+  void setAggression(double aggression) {
+    if (liveMatch == null || liveMatch!.completed) return;
+    liveMatch!.aggression = aggression.clamp(0.15, 0.92);
+    notifyListeners();
+  }
+
+  void _commitMatchResult() {
+    final match = liveMatch;
+    if (match == null || _resultCommitted == true) return;
+
+    final result = match.buildResult();
+    latestResult = result;
+    _resultCommitted = true;
+    autoPlay = false;
+    _autoTimer?.cancel();
+
+    final fixture = nextFixture;
+    if (fixture != null) {
+      final updatedFixture = fixture.copyWith(
+        played: true,
+        resultSummary: result.summary,
+        won: result.userWon,
+      );
+      final idx = fixtures.indexOf(fixture);
+      fixtures[idx] = updatedFixture;
+    }
+
+    _applyMatchImpact(result);
+    _updateObjectives();
+    _log('Round $matchesPlayed: ${result.summary}');
+    statusBanner = result.summary;
+
+    if (seasonComplete) {
+      _finishSeasonObjectives();
+    }
+  }
+
+  void _applyMatchImpact(MatchResult result) {
+    final userRuns = result.userInnings.runs;
+    final aiRuns = result.aiInnings.runs;
+
+    final margin = (userRuns - aiRuns).abs();
+    final nrrDelta =
+        ((userRuns - aiRuns) / max(120, matchFormat.oversPerInnings * 6)).clamp(
+          -0.4,
+          0.4,
+        );
+
+    userTeam = userTeam.copyWith(
+      wins: userTeam.wins + (result.userWon ? 1 : 0),
+      losses: userTeam.losses + (result.userWon ? 0 : 1),
+      points: userTeam.points + (result.userWon ? 2 : 0),
+      netRunRate: userTeam.netRunRate + nrrDelta,
+      morale: (userTeam.morale + (result.userWon ? 4 : -3)).clamp(30, 99),
+      fans: userTeam.fans + (result.userWon ? 4200 : 1300),
+    );
+
+    final ticketRevenue =
+        (2.2 + (result.userWon ? 0.7 : 0.2) + (userTeam.sponsorLevel * 0.25));
+    final sponsorRevenue = userTeam.sponsorLevel * 0.55;
+    final wageCost = 1.8;
+    final infraCost = 0.5 * userTeam.infraLevel;
+    final matchBonus = result.userWon ? 1.0 : 0.0;
+    final net =
+        ticketRevenue + sponsorRevenue + matchBonus - wageCost - infraCost;
+
+    userTeam = userTeam.copyWith(cashCr: (userTeam.cashCr + net));
+
+    _addFinance('Matchday revenue', ticketRevenue + sponsorRevenue, 'income');
+    _addFinance('Player and operation wages', -wageCost - infraCost, 'expense');
+    if (matchBonus > 0) {
+      _addFinance('Win bonus', matchBonus, 'income');
+    }
+
+    _updateStandings(result.userWon, nrrDelta, margin);
+  }
+
+  void _updateStandings(bool userWon, double nrrDelta, int margin) {
+    final userIdx = standings.indexWhere(
+      (s) => s.name == userTeam.name || s.name == 'My Franchise',
+    );
+    if (userIdx != -1) {
+      final userStanding = standings[userIdx];
+      standings[userIdx] = userStanding.copyWith(
+        played: userStanding.played + 1,
+        wins: userStanding.wins + (userWon ? 1 : 0),
+        losses: userStanding.losses + (userWon ? 0 : 1),
+        points: userStanding.points + (userWon ? 2 : 0),
+        netRunRate: userStanding.netRunRate + nrrDelta,
+      );
+    }
+
+    final fixture = fixtures[matchesPlayed - 1];
+    final oppIdx = standings.indexWhere((s) => s.name == fixture.opponent);
+    if (oppIdx != -1) {
+      final oppStanding = standings[oppIdx];
+      standings[oppIdx] = oppStanding.copyWith(
+        played: oppStanding.played + 1,
+        wins: oppStanding.wins + (userWon ? 0 : 1),
+        losses: oppStanding.losses + (userWon ? 1 : 0),
+        points: oppStanding.points + (userWon ? 0 : 2),
+        netRunRate: oppStanding.netRunRate - nrrDelta,
+      );
+    }
+
+    // Simulate other league games for realism.
+    for (var i = 0; i < standings.length; i++) {
+      if (i == userIdx || i == oppIdx) continue;
+      if (_random.nextDouble() < 0.22) {
+        final team = standings[i];
+        final won = _random.nextBool();
+        standings[i] = team.copyWith(
+          played: team.played + 1,
+          wins: team.wins + (won ? 1 : 0),
+          losses: team.losses + (won ? 0 : 1),
+          points: team.points + (won ? 2 : 0),
+          netRunRate: team.netRunRate + (_random.nextDouble() * 0.14 - 0.07),
+        );
+      }
+    }
+  }
+
+  void _finishSeasonObjectives() {
+    final sorted = List<TeamStanding>.of(standings)
+      ..sort((a, b) {
+        final byPoints = b.points.compareTo(a.points);
+        if (byPoints != 0) return byPoints;
+        return b.netRunRate.compareTo(a.netRunRate);
+      });
+
+    final rank =
+        sorted.indexWhere(
+          (s) => s.name == userTeam.name || s.name == 'My Franchise',
+        ) +
+        1;
+    final top4Achieved = rank > 0 && rank <= 4;
+
+    objectives = objectives.map((o) {
+      if (o.id == 'top4') {
+        return o.copyWith(current: top4Achieved ? 1 : 0);
+      }
+      return o;
+    }).toList();
+
+    final completedObjectives = objectives.where((o) => o.completed).length;
+
+    if (rank == 1) {
+      userTeam = userTeam.copyWith(
+        trophies: userTeam.trophies + 1,
+        cashCr: userTeam.cashCr + 8.5,
+        morale: (userTeam.morale + 8).clamp(30, 99),
+      );
+      _addFinance('League champion prize', 8.5, 'income');
+      _log('Season $seasonYear ended: Champions.');
+      statusBanner = 'Season complete. You finished #1 and won the title.';
+    } else {
+      _log('Season $seasonYear ended: finished #$rank.');
+      statusBanner = 'Season complete. Final rank: #$rank.';
+    }
+
+    if (completedObjectives <= 1) {
+      fired = true;
+      _log('Board decision: Contract terminated due to missed objectives.');
+      statusBanner =
+          'Board terminated your contract after season review. Restart career.';
+    } else if (completedObjectives == 2) {
+      _log('Board decision: Final warning issued.');
+      statusBanner = '$statusBanner Board issued a final warning.';
+    }
+
+    notifyListeners();
+  }
+
+  void refreshAuctionRoom() {
+    if (liveMatch != null && !liveMatch!.completed) {
+      statusBanner = 'Cannot open auction while a match is active.';
+      notifyListeners();
+      return;
+    }
+    auctionLots = _seed.createAuctionLots();
+    statusBanner = 'Mini-auction room refreshed.';
+    notifyListeners();
+  }
+
+  void placeBid(String lotId) {
+    final idx = auctionLots.indexWhere((l) => l.id == lotId);
+    if (idx == -1) return;
+    final lot = auctionLots[idx];
+    if (lot.closed) return;
+
+    final userBid = lot.currentBidCr + 0.2;
+    if (userTeam.cashCr < userBid) {
+      statusBanner = 'Insufficient purse to place bid.';
+      notifyListeners();
+      return;
+    }
+
+    var updatedLot = lot.copyWith(currentBidCr: userBid, highestBidder: 'You');
+
+    final aiTeams = standings
+        .map((s) => s.name)
+        .where((name) => name != userTeam.name && name != 'My Franchise')
+        .toList();
+
+    var active = _random.nextDouble() < 0.55;
+    var loops = 0;
+    while (active && loops < 3) {
+      loops++;
+      final aiBid = updatedLot.currentBidCr + 0.2;
+      if (aiBid > updatedLot.player.marketValueCr + 1.4) break;
+      final ai = aiTeams[_random.nextInt(aiTeams.length)];
+      updatedLot = updatedLot.copyWith(currentBidCr: aiBid, highestBidder: ai);
+      active = _random.nextDouble() < 0.45;
+    }
+
+    auctionLots[idx] = updatedLot;
+    statusBanner =
+        '${updatedLot.player.name} now at ₹${updatedLot.currentBidCr.toStringAsFixed(1)} Cr (${updatedLot.highestBidder}).';
+    notifyListeners();
+  }
+
+  void finalizeLot(String lotId) {
+    final idx = auctionLots.indexWhere((l) => l.id == lotId);
+    if (idx == -1) return;
+
+    final lot = auctionLots[idx];
+    if (lot.closed) return;
+
+    if (lot.highestBidder != 'You') {
+      auctionLots[idx] = lot.copyWith(closed: true, soldToUser: false);
+      statusBanner = '${lot.player.name} sold to ${lot.highestBidder}.';
+      notifyListeners();
+      return;
+    }
+
+    if (userTeam.cashCr < lot.currentBidCr) {
+      statusBanner = 'Purse too low to complete signing.';
+      notifyListeners();
+      return;
+    }
+
+    var squad = List<Player>.of(userTeam.squad);
+    final signedPlayer = lot.player.copyWith(inPlayingXI: false);
+
+    if (squad.length >= 22) {
+      squad.sort((a, b) => a.overall.compareTo(b.overall));
+      final removed = squad.removeAt(0);
+      _log('Released ${removed.name} to register ${signedPlayer.name}.');
+    }
+
+    squad.add(signedPlayer);
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - lot.currentBidCr,
+      squad: squad,
+    );
+
+    if (signedPlayer.age <= 23) {
+      youthSignings += 1;
+    }
+
+    auctionLots[idx] = lot.copyWith(closed: true, soldToUser: true);
+    _addFinance(
+      'Auction signing: ${signedPlayer.name}',
+      -lot.currentBidCr,
+      'transfer',
+    );
+    _log(
+      'Signed ${signedPlayer.name} for ₹${lot.currentBidCr.toStringAsFixed(1)} Cr.',
+    );
+    _updateObjectives();
+    statusBanner = 'Signed ${signedPlayer.name}.';
+    notifyListeners();
+  }
+
+  void trainPlayer(String playerId, String focus) {
+    if (userTeam.cashCr < 0.35) {
+      statusBanner = 'Need at least ₹0.35 Cr for one training block.';
+      notifyListeners();
+      return;
+    }
+
+    final idx = userTeam.squad.indexWhere((p) => p.id == playerId);
+    if (idx == -1) return;
+
+    final player = userTeam.squad[idx];
+    int hitting = player.hitting;
+    int anchoring = player.anchoring;
+    int bowling = player.bowling;
+    int pressure = player.pressure;
+    int form = player.form;
+    int fitness = player.fitness;
+
+    switch (focus) {
+      case 'Batting':
+        hitting = (hitting + 2).clamp(30, 99);
+        anchoring = (anchoring + 1).clamp(30, 99);
+        break;
+      case 'Bowling':
+        bowling = (bowling + 2).clamp(30, 99);
+        break;
+      case 'Mental':
+        pressure = (pressure + 2).clamp(30, 99);
+        break;
+      case 'Fitness':
+        fitness = (fitness + 2).clamp(30, 99);
+        break;
+    }
+
+    form = (form + 1).clamp(30, 99);
+    final overall =
+        ((hitting +
+                    anchoring +
+                    bowling +
+                    player.economySkill +
+                    pressure +
+                    fitness +
+                    form) /
+                7)
+            .round();
+
+    final updated = player.copyWith(
+      hitting: hitting,
+      anchoring: anchoring,
+      bowling: bowling,
+      pressure: pressure,
+      form: form,
+      fitness: fitness,
+      overall: overall,
+    );
+
+    final updatedSquad = List<Player>.of(userTeam.squad);
+    updatedSquad[idx] = updated;
+
+    userTeam = userTeam.copyWith(
+      squad: updatedSquad,
+      cashCr: userTeam.cashCr - 0.35,
+    );
+
+    _addFinance(
+      'Training block ($focus): ${player.name}',
+      -0.35,
+      'development',
+    );
+    statusBanner = '${player.name} completed $focus training.';
+    notifyListeners();
+  }
+
+  void togglePlayingXI(String playerId) {
+    final idx = userTeam.squad.indexWhere((p) => p.id == playerId);
+    if (idx == -1) return;
+
+    final player = userTeam.squad[idx];
+    final currentXI = userTeam.squad.where((p) => p.inPlayingXI).length;
+
+    if (player.inPlayingXI && currentXI <= 11) {
+      statusBanner = 'Playing XI must have at least 11 players.';
+      notifyListeners();
+      return;
+    }
+
+    if (!player.inPlayingXI && currentXI >= 11) {
+      statusBanner = 'Playing XI already has 11 players. Bench someone first.';
+      notifyListeners();
+      return;
+    }
+
+    final updatedSquad = List<Player>.of(userTeam.squad);
+    updatedSquad[idx] = player.copyWith(inPlayingXI: !player.inPlayingXI);
+    userTeam = userTeam.copyWith(squad: updatedSquad);
+
+    statusBanner = player.inPlayingXI
+        ? '${player.name} moved to bench.'
+        : '${player.name} moved to playing XI.';
+    notifyListeners();
+  }
+
+  void runMarketingCampaign() {
+    const cost = 2.8;
+    if (userTeam.cashCr < cost) {
+      statusBanner = 'Not enough cash for campaign.';
+      notifyListeners();
+      return;
+    }
+
+    final fanBoost = 4500 + _random.nextInt(2500);
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - cost,
+      fans: userTeam.fans + fanBoost,
+    );
+    _addFinance('Marketing campaign', -cost, 'marketing');
+    statusBanner = 'Campaign finished: +$fanBoost fans.';
+    _updateObjectives();
+    notifyListeners();
+  }
+
+  void promoteYouthPlayer(String playerId) {
+    final idx = youthAcademy.indexWhere((p) => p.id == playerId);
+    if (idx == -1) return;
+    if (userTeam.cashCr < 0.45) {
+      statusBanner = 'Need ₹0.45 Cr to promote an academy player.';
+      notifyListeners();
+      return;
+    }
+
+    final player = youthAcademy[idx];
+    final promoted = player.copyWith(
+      id: 'academy-${DateTime.now().millisecondsSinceEpoch}',
+      age: player.age + 1,
+      overall: (player.overall + 4).clamp(40, 95),
+      form: (player.form + 6).clamp(35, 99),
+    );
+
+    final squad = List<Player>.of(userTeam.squad);
+    if (squad.length >= 22) {
+      squad.sort((a, b) => a.overall.compareTo(b.overall));
+      squad.removeAt(0);
+    }
+    squad.add(promoted);
+
+    final updatedAcademy = List<Player>.of(youthAcademy)..removeAt(idx);
+    updatedAcademy.addAll(_createYouthAcademy().take(1));
+
+    youthAcademy = updatedAcademy;
+    youthSignings += 1;
+    userTeam = userTeam.copyWith(cashCr: userTeam.cashCr - 0.45, squad: squad);
+    _addFinance('Youth promotion: ${promoted.name}', -0.45, 'academy');
+    _log('Promoted academy player ${promoted.name}.');
+    _updateObjectives();
+    statusBanner = 'Academy talent ${promoted.name} promoted to senior squad.';
+    notifyListeners();
+  }
+
+  void triggerDynamicEvent() {
+    if (fired) return;
+    final roll = _random.nextDouble();
+
+    if (roll < 0.34) {
+      final candidates = userTeam.squad
+          .where((p) => p.inPlayingXI && !p.injured)
+          .toList();
+      if (candidates.isNotEmpty) {
+        final injured = candidates[_random.nextInt(candidates.length)];
+        final idx = userTeam.squad.indexWhere((p) => p.id == injured.id);
+        final updated = List<Player>.of(userTeam.squad);
+        updated[idx] = injured.copyWith(
+          injured: true,
+          fitness: (injured.fitness - 8).clamp(30, 99),
+        );
+        userTeam = userTeam.copyWith(
+          squad: updated,
+          morale: (userTeam.morale - 3).clamp(30, 99),
+        );
+        _log('Dynamic event: ${injured.name} picked up a minor injury.');
+        statusBanner = 'Dynamic Event: ${injured.name} injured (2-3 matches).';
+      }
+    } else if (roll < 0.67) {
+      final star = List<Player>.of(userTeam.squad)
+        ..sort((a, b) => b.overall.compareTo(a.overall));
+      if (star.isNotEmpty) {
+        final top = star.first;
+        userTeam = userTeam.copyWith(
+          morale: (userTeam.morale - 5).clamp(30, 99),
+          cashCr: userTeam.cashCr - 0.8,
+        );
+        _addFinance('Team dispute settlement', -0.8, 'discipline');
+        _log(
+          'Dynamic event: Locker-room issue around ${top.name}, resolved by management.',
+        );
+        statusBanner = 'Dynamic Event: Team dispute resolved with morale hit.';
+      }
+    } else {
+      final veterans = userTeam.squad.where((p) => p.age >= 34).toList();
+      if (veterans.isNotEmpty) {
+        final retiring = veterans[_random.nextInt(veterans.length)];
+        final updated = List<Player>.of(userTeam.squad)
+          ..removeWhere((p) => p.id == retiring.id);
+        userTeam = userTeam.copyWith(squad: updated);
+        _log('Dynamic event: ${retiring.name} announced retirement.');
+        statusBanner = 'Dynamic Event: ${retiring.name} retired.';
+      } else {
+        statusBanner = 'Dynamic Event: No major incidents this week.';
+      }
+    }
+
+    notifyListeners();
+  }
+
+  void upgradeInfrastructure() {
+    final cost = 3.0 + userTeam.infraLevel * 1.8;
+    if (userTeam.cashCr < cost) {
+      statusBanner = 'Need ₹${cost.toStringAsFixed(1)} Cr for next upgrade.';
+      notifyListeners();
+      return;
+    }
+
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - cost,
+      infraLevel: userTeam.infraLevel + 1,
+      morale: (userTeam.morale + 2).clamp(30, 99),
+    );
+
+    final updatedSquad = userTeam.squad
+        .map((p) => p.copyWith(fitness: (p.fitness + 1).clamp(30, 99)))
+        .toList();
+    userTeam = userTeam.copyWith(squad: updatedSquad);
+
+    _addFinance('Infrastructure upgrade', -cost, 'infrastructure');
+    statusBanner = 'Infrastructure upgraded to level ${userTeam.infraLevel}.';
+    notifyListeners();
+  }
+
+  void negotiateSponsor() {
+    final requiredFans = 70000 + (userTeam.sponsorLevel * 8000);
+    if (userTeam.fans < requiredFans) {
+      statusBanner = 'Need $requiredFans fans to unlock next sponsor tier.';
+      notifyListeners();
+      return;
+    }
+
+    userTeam = userTeam.copyWith(
+      sponsorLevel: userTeam.sponsorLevel + 1,
+      cashCr: userTeam.cashCr + 4.2,
+    );
+    _addFinance('Sponsor renegotiation bonus', 4.2, 'sponsorship');
+    statusBanner = 'Sponsor upgraded to tier ${userTeam.sponsorLevel}.';
+    notifyListeners();
+  }
+
+  void advanceSeason() {
+    if (!seasonComplete) {
+      statusBanner = 'Finish all fixtures before advancing season.';
+      notifyListeners();
+      return;
+    }
+
+    seasonYear += 1;
+    youthSignings = 0;
+
+    final rolloverCash = userTeam.cashCr + 6.5;
+    final refreshedSquad = userTeam.squad.map((p) {
+      final age = p.age + 1;
+      final ageDrop = age >= 33 ? 2 : 0;
+      final refreshedForm = (p.form + _random.nextInt(7) - 3).clamp(35, 96);
+      final refreshedFitness = (p.fitness + _random.nextInt(7) - 4).clamp(
+        35,
+        96,
+      );
+      final overall = (p.overall - ageDrop).clamp(32, 98);
+      return p.copyWith(
+        age: age,
+        form: refreshedForm,
+        fitness: refreshedFitness,
+        overall: overall,
+        injured: _random.nextDouble() < 0.04,
+      );
+    }).toList();
+
+    userTeam = userTeam.copyWith(
+      wins: 0,
+      losses: 0,
+      points: 0,
+      netRunRate: 0,
+      cashCr: rolloverCash,
+      squad: refreshedSquad,
+    );
+
+    standings = _seed.createStandings(userTeam.name);
+    fixtures = _seed.createFixtures(userTeam.name);
+    objectives = _defaultObjectives();
+    youthAcademy = _createYouthAcademy();
+    latestResult = null;
+    liveMatch = null;
+    _resultCommitted = false;
+    fired = false;
+
+    if (seasonYear % 3 == 0) {
+      auctionLots = _seed.createAuctionLots();
+      _log('Mega auction triggered for season $seasonYear.');
+      statusBanner = 'Season $seasonYear started. Mega auction is live.';
+    } else {
+      statusBanner = 'Season $seasonYear started.';
+    }
+
+    _log('Entered season $seasonYear.');
+    notifyListeners();
+  }
+
+  void _updateObjectives() {
+    objectives = objectives.map((objective) {
+      switch (objective.id) {
+        case 'wins':
+          return objective.copyWith(current: userTeam.wins);
+        case 'fans':
+          return objective.copyWith(current: userTeam.fans ~/ 1000);
+        case 'youth':
+          return objective.copyWith(current: youthSignings);
+        default:
+          return objective;
+      }
+    }).toList();
+  }
+
+  void restartCareer() {
+    _autoTimer?.cancel();
+    autoPlay = false;
+    liveMatch = null;
+    latestResult = null;
+    seasonYear = 2026;
+    youthSignings = 0;
+    fired = false;
+    _initialize();
+    statusBanner = 'New career started.';
+    notifyListeners();
+  }
+
+  void _addFinance(String title, double amountCr, String type) {
+    financeLedger.insert(
+      0,
+      FinanceEntry(
+        timestamp: DateTime.now(),
+        title: title,
+        amountCr: amountCr,
+        type: type,
+      ),
+    );
+
+    if (financeLedger.length > 60) {
+      financeLedger.removeLast();
+    }
+  }
+
+  void _log(String message) {
+    careerLog.insert(0, message);
+    if (careerLog.length > 100) {
+      careerLog.removeLast();
+    }
+  }
+}
