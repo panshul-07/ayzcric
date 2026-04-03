@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../game/game_scope.dart';
 import '../game/models.dart';
+import 'franchise_editor_screen.dart';
 
 class CareerScreen extends StatelessWidget {
   const CareerScreen({super.key});
@@ -70,6 +71,15 @@ class CareerScreen extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const FranchiseEditorScreen(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Edit Franchise Identity'),
+                    ),
                     OutlinedButton.icon(
                       onPressed: controller.triggerDynamicEvent,
                       icon: const Icon(Icons.bolt),

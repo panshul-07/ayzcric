@@ -79,6 +79,49 @@ extension PlayerRoleX on PlayerRole {
   }
 }
 
+enum TeamBadgeShape { circle, diamond, hexagon, pentagon, shield }
+
+enum TeamBadgePattern { chevron, diagonal, band }
+
+enum TeamBadgeEmblem { sword, star, bolt, crown, anchor }
+
+@immutable
+class TeamBranding {
+  const TeamBranding({
+    required this.shape,
+    required this.pattern,
+    required this.emblem,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.accentColor,
+  });
+
+  final TeamBadgeShape shape;
+  final TeamBadgePattern pattern;
+  final TeamBadgeEmblem emblem;
+  final int primaryColor;
+  final int secondaryColor;
+  final int accentColor;
+
+  TeamBranding copyWith({
+    TeamBadgeShape? shape,
+    TeamBadgePattern? pattern,
+    TeamBadgeEmblem? emblem,
+    int? primaryColor,
+    int? secondaryColor,
+    int? accentColor,
+  }) {
+    return TeamBranding(
+      shape: shape ?? this.shape,
+      pattern: pattern ?? this.pattern,
+      emblem: emblem ?? this.emblem,
+      primaryColor: primaryColor ?? this.primaryColor,
+      secondaryColor: secondaryColor ?? this.secondaryColor,
+      accentColor: accentColor ?? this.accentColor,
+    );
+  }
+}
+
 @immutable
 class PlayerTrait {
   const PlayerTrait({
@@ -195,6 +238,7 @@ class TeamProfile {
   const TeamProfile({
     required this.name,
     required this.shortName,
+    required this.branding,
     required this.squad,
     required this.cashCr,
     required this.fans,
@@ -210,6 +254,7 @@ class TeamProfile {
 
   final String name;
   final String shortName;
+  final TeamBranding branding;
   final List<Player> squad;
   final double cashCr;
   final int fans;
@@ -225,6 +270,7 @@ class TeamProfile {
   TeamProfile copyWith({
     String? name,
     String? shortName,
+    TeamBranding? branding,
     List<Player>? squad,
     double? cashCr,
     int? fans,
@@ -240,6 +286,7 @@ class TeamProfile {
     return TeamProfile(
       name: name ?? this.name,
       shortName: shortName ?? this.shortName,
+      branding: branding ?? this.branding,
       squad: squad ?? this.squad,
       cashCr: cashCr ?? this.cashCr,
       fans: fans ?? this.fans,
@@ -251,6 +298,35 @@ class TeamProfile {
       points: points ?? this.points,
       netRunRate: netRunRate ?? this.netRunRate,
       trophies: trophies ?? this.trophies,
+    );
+  }
+}
+
+@immutable
+class TeamRecord {
+  const TeamRecord({
+    required this.title,
+    required this.value,
+    required this.holder,
+    required this.season,
+  });
+
+  final String title;
+  final String value;
+  final String holder;
+  final int season;
+
+  TeamRecord copyWith({
+    String? title,
+    String? value,
+    String? holder,
+    int? season,
+  }) {
+    return TeamRecord(
+      title: title ?? this.title,
+      value: value ?? this.value,
+      holder: holder ?? this.holder,
+      season: season ?? this.season,
     );
   }
 }

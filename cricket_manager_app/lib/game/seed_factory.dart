@@ -175,6 +175,14 @@ class SeedFactory {
     return TeamProfile(
       name: 'Royal Challengers Bengaluru',
       shortName: 'RCB',
+      branding: const TeamBranding(
+        shape: TeamBadgeShape.circle,
+        pattern: TeamBadgePattern.chevron,
+        emblem: TeamBadgeEmblem.bolt,
+        primaryColor: 0xFFD32F2F,
+        secondaryColor: 0xFFFFC107,
+        accentColor: 0xFFFFFFFF,
+      ),
       squad: players,
       cashCr: 100,
       fans: 64000,

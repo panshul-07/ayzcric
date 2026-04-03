@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../game/game_controller.dart';
 import '../game/game_scope.dart';
 import '../game/models.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/team_badge.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -174,10 +176,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _StandingsList(
                     sortedTable: sortedTable,
                     userTeamName: controller.userTeam.name,
+                    controller: controller,
                   ),
                 if (tabIndex == 1) _FixturesList(fixtures: controller.fixtures),
                 if (tabIndex == 2)
                   _TopPlayersList(cards: controller.leagueTopCards),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Franchise Records',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                for (final record in controller.franchiseRecords)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerLow,
+                      ),
+                      child: ListTile(
+                        title: Text(record.title),
+                        subtitle: Text(
+                          record.holder == '-'
+                              ? 'No record yet'
+                              : '${record.holder} • S${record.season}',
+                        ),
+                        trailing: Text(
+                          record.value,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -229,10 +277,15 @@ class _LeagueTabChip extends StatelessWidget {
 }
 
 class _StandingsList extends StatelessWidget {
-  const _StandingsList({required this.sortedTable, required this.userTeamName});
+  const _StandingsList({
+    required this.sortedTable,
+    required this.userTeamName,
+    required this.controller,
+  });
 
   final List<TeamStanding> sortedTable;
   final String userTeamName;
+  final GameController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -256,9 +309,19 @@ class _StandingsList extends StatelessWidget {
             ),
             child: ListTile(
               dense: true,
-              leading: Text(
-                '${i + 1}',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${i + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(width: 6),
+                  TeamBadge(
+                    branding: controller.teamBrandingFor(sortedTable[i].name),
+                    size: 28,
+                  ),
+                ],
               ),
               title: Text(sortedTable[i].name),
               subtitle: Text(

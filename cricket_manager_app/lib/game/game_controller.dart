@@ -55,14 +55,123 @@ class GameController extends ChangeNotifier {
     'League Position': 0,
     'Championship': 0,
   };
+  final List<int> fanTrendCareer = <int>[];
+  final List<int> fanTrendSeason = <int>[];
+  double fanRevenueSeasonCr = 0;
+  double fanRevenueCareerCr = 0;
+
+  String teamFranchise = 'Royal Challengers';
+  String teamSuffix = 'Bengaluru';
+  String teamAbbreviation = 'RCB';
+
+  static const Map<String, TeamBranding> defaultTeamBrandings = {
+    'Chennai Super Kings': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.star,
+      primaryColor: 0xFFF9C70B,
+      secondaryColor: 0xFF1E88E5,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Delhi Capitals': TeamBranding(
+      shape: TeamBadgeShape.hexagon,
+      pattern: TeamBadgePattern.diagonal,
+      emblem: TeamBadgeEmblem.crown,
+      primaryColor: 0xFF114AA3,
+      secondaryColor: 0xFFE53935,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Gujarat Titans': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.sword,
+      primaryColor: 0xFF1B2A49,
+      secondaryColor: 0xFFC9A349,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Kolkata Knight Riders': TeamBranding(
+      shape: TeamBadgeShape.diamond,
+      pattern: TeamBadgePattern.chevron,
+      emblem: TeamBadgeEmblem.star,
+      primaryColor: 0xFF5B2D90,
+      secondaryColor: 0xFFFBC02D,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Lucknow Super Giants': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.anchor,
+      primaryColor: 0xFF1E88E5,
+      secondaryColor: 0xFFF9A825,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Mumbai Indians': TeamBranding(
+      shape: TeamBadgeShape.circle,
+      pattern: TeamBadgePattern.chevron,
+      emblem: TeamBadgeEmblem.anchor,
+      primaryColor: 0xFF1565C0,
+      secondaryColor: 0xFFFFD54F,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Punjab Kings': TeamBranding(
+      shape: TeamBadgeShape.circle,
+      pattern: TeamBadgePattern.chevron,
+      emblem: TeamBadgeEmblem.sword,
+      primaryColor: 0xFFD32F2F,
+      secondaryColor: 0xFFFBC02D,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Rajasthan Royals': TeamBranding(
+      shape: TeamBadgeShape.pentagon,
+      pattern: TeamBadgePattern.diagonal,
+      emblem: TeamBadgeEmblem.crown,
+      primaryColor: 0xFFEC407A,
+      secondaryColor: 0xFF5C6BC0,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Royal Challengers Bengaluru': TeamBranding(
+      shape: TeamBadgeShape.circle,
+      pattern: TeamBadgePattern.chevron,
+      emblem: TeamBadgeEmblem.bolt,
+      primaryColor: 0xFFD32F2F,
+      secondaryColor: 0xFFFFC107,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Sunrisers Hyderabad': TeamBranding(
+      shape: TeamBadgeShape.circle,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.star,
+      primaryColor: 0xFFEF6C00,
+      secondaryColor: 0xFF212121,
+      accentColor: 0xFFFFFFFF,
+    ),
+  };
+
+  final Map<String, _RecordEntry> _recordBook = {
+    'Highest Team Total': _RecordEntry(),
+    'Best Successful Chase': _RecordEntry(),
+    'Biggest Win (Runs)': _RecordEntry(),
+    'Biggest Win (Wkts)': _RecordEntry(),
+    'Best NRR Swing': _RecordEntry(),
+  };
 
   void _initialize() {
     userTeam = _seed.createUserTeam();
+    teamAbbreviation = userTeam.shortName;
+    final split = _splitFranchise(userTeam.name);
+    teamFranchise = split.$1;
+    teamSuffix = split.$2;
     standings = _seed.createStandings(userTeam.name);
     fixtures = _seed.createFixtures(userTeam.name);
     auctionLots = _seed.createAuctionLots();
     youthAcademy = _createYouthAcademy();
     objectives = _defaultObjectives();
+    if (fanTrendCareer.isEmpty) {
+      fanTrendCareer.add(userTeam.fans);
+    }
+    fanTrendSeason
+      ..clear()
+      ..add(userTeam.fans);
 
     _log('Franchise initialized for season $seasonYear.');
     _addFinance('Founding capital', 100.0, 'capital');
@@ -245,8 +354,33 @@ class GameController extends ChangeNotifier {
         'team': team.name,
         'fans': base + swing,
         'delta': swing,
+        'branding': teamBrandingFor(team.name),
       };
     });
+  }
+
+  List<TeamRecord> get franchiseRecords => _recordBook.entries.map((entry) {
+    return TeamRecord(
+      title: entry.key,
+      value: entry.value.metric <= 0 ? '-' : entry.value.displayValue,
+      holder: entry.value.holder,
+      season: entry.value.season,
+    );
+  }).toList();
+
+  TeamBranding teamBrandingFor(String teamName) {
+    if (teamName == userTeam.name) {
+      return userTeam.branding;
+    }
+    return defaultTeamBrandings[teamName] ??
+        const TeamBranding(
+          shape: TeamBadgeShape.circle,
+          pattern: TeamBadgePattern.band,
+          emblem: TeamBadgeEmblem.star,
+          primaryColor: 0xFF546E7A,
+          secondaryColor: 0xFFCFD8DC,
+          accentColor: 0xFFFFFFFF,
+        );
   }
 
   void setFormat(MatchFormat format) {
@@ -268,6 +402,47 @@ class GameController extends ChangeNotifier {
       final player = userTeam.squad.firstWhere((p) => p.id == playerId);
       statusBanner = 'Impact player set: ${player.name}.';
     }
+    notifyListeners();
+  }
+
+  void saveFranchiseIdentity({
+    required String franchise,
+    required String suffix,
+    required String abbreviation,
+    required TeamBranding branding,
+  }) {
+    if (liveMatch != null && !liveMatch!.completed) {
+      statusBanner = 'Finish active match before editing franchise identity.';
+      notifyListeners();
+      return;
+    }
+
+    final oldName = userTeam.name;
+    final cleanFranchise = franchise.trim().isEmpty
+        ? teamFranchise
+        : franchise.trim();
+    final cleanSuffix = suffix.trim().isEmpty ? teamSuffix : suffix.trim();
+    final cleanAbbr = abbreviation.trim().isEmpty
+        ? teamAbbreviation
+        : abbreviation.trim().toUpperCase();
+    final newName = '$cleanFranchise $cleanSuffix';
+
+    teamFranchise = cleanFranchise;
+    teamSuffix = cleanSuffix;
+    teamAbbreviation = cleanAbbr;
+
+    userTeam = userTeam.copyWith(
+      name: newName,
+      shortName: cleanAbbr,
+      branding: branding,
+    );
+
+    standings = standings
+        .map((s) => s.name == oldName ? s.copyWith(name: newName) : s)
+        .toList();
+
+    statusBanner = 'Franchise identity updated to $newName.';
+    _log('Updated franchise branding and identity.');
     notifyListeners();
   }
 
@@ -480,6 +655,8 @@ class GameController extends ChangeNotifier {
     final matchBonus = result.userWon ? 1.0 : 0.0;
     final net =
         ticketRevenue + sponsorRevenue + matchBonus - wageCost - infraCost;
+    fanRevenueSeasonCr += ticketRevenue;
+    fanRevenueCareerCr += ticketRevenue;
 
     userTeam = userTeam.copyWith(cashCr: (userTeam.cashCr + net));
 
@@ -490,6 +667,7 @@ class GameController extends ChangeNotifier {
     }
 
     _updateStandings(result.userWon, nrrDelta, margin);
+    _updateRecordBook(result, nrrDelta);
   }
 
   void _updateStandings(bool userWon, double nrrDelta, int margin) {
@@ -1105,6 +1283,10 @@ class GameController extends ChangeNotifier {
     for (final key in fanMovementSeason.keys) {
       fanMovementSeason[key] = 0;
     }
+    fanRevenueSeasonCr = 0;
+    fanTrendSeason
+      ..clear()
+      ..add(userTeam.fans);
 
     if (seasonYear % 3 == 0) {
       auctionLots = _seed.createAuctionLots();
@@ -1150,9 +1332,90 @@ class GameController extends ChangeNotifier {
     for (final key in fanMovementSeason.keys) {
       fanMovementSeason[key] = 0;
     }
+    fanTrendCareer.clear();
+    fanTrendSeason.clear();
+    fanRevenueSeasonCr = 0;
+    fanRevenueCareerCr = 0;
+    for (final key in _recordBook.keys) {
+      _recordBook[key] = const _RecordEntry();
+    }
     _initialize();
     statusBanner = 'New career started.';
     notifyListeners();
+  }
+
+  void _updateRecordBook(MatchResult result, double nrrDelta) {
+    final userRuns = result.userInnings.runs;
+    final aiRuns = result.aiInnings.runs;
+    final opponentName = result.aiInnings.teamName == userTeam.name
+        ? result.userInnings.teamName
+        : result.aiInnings.teamName;
+    final winner = result.userWon ? userTeam.name : opponentName;
+
+    final highestTotal = max(userRuns, aiRuns);
+    _setRecord(
+      key: 'Highest Team Total',
+      metric: highestTotal,
+      valueLabel: '$highestTotal',
+      holder: highestTotal == userRuns ? userTeam.name : opponentName,
+    );
+
+    if (result.userWon && result.userInnings.runs >= result.aiInnings.runs) {
+      _setRecord(
+        key: 'Best Successful Chase',
+        metric: result.userInnings.runs,
+        valueLabel: '${result.userInnings.runs}',
+        holder: userTeam.name,
+      );
+      final wkts = 10 - result.userInnings.wickets;
+      _setRecord(
+        key: 'Biggest Win (Wkts)',
+        metric: wkts,
+        valueLabel: '$wkts',
+        holder: userTeam.name,
+      );
+    } else if (!result.userWon &&
+        result.aiInnings.runs >= result.userInnings.runs) {
+      final wkts = 10 - result.aiInnings.wickets;
+      _setRecord(
+        key: 'Biggest Win (Wkts)',
+        metric: wkts,
+        valueLabel: '$wkts',
+        holder: winner,
+      );
+    } else {
+      final runMargin = (userRuns - aiRuns).abs();
+      _setRecord(
+        key: 'Biggest Win (Runs)',
+        metric: runMargin,
+        valueLabel: '$runMargin',
+        holder: winner,
+      );
+    }
+
+    _setRecord(
+      key: 'Best NRR Swing',
+      metric: (nrrDelta.abs() * 1000).round(),
+      valueLabel: nrrDelta.abs().toStringAsFixed(2),
+      holder: userTeam.name,
+    );
+  }
+
+  void _setRecord({
+    required String key,
+    required int metric,
+    required String valueLabel,
+    required String holder,
+  }) {
+    final entry = _recordBook[key];
+    if (entry == null) return;
+    if (metric <= entry.metric) return;
+    _recordBook[key] = _RecordEntry(
+      metric: metric,
+      displayValue: valueLabel,
+      holder: holder,
+      season: seasonYear,
+    );
   }
 
   void _addFanMovement(String reason, int delta) {
@@ -1161,6 +1424,24 @@ class GameController extends ChangeNotifier {
     userTeam = userTeam.copyWith(
       fans: (userTeam.fans + delta).clamp(12000, 950000).toInt(),
     );
+    fanTrendCareer.add(userTeam.fans);
+    fanTrendSeason.add(userTeam.fans);
+    if (fanTrendCareer.length > 200) {
+      fanTrendCareer.removeAt(0);
+    }
+    if (fanTrendSeason.length > 80) {
+      fanTrendSeason.removeAt(0);
+    }
+  }
+
+  (String, String) _splitFranchise(String teamName) {
+    final parts = teamName.trim().split(RegExp(r'\s+'));
+    if (parts.length <= 1) {
+      return (teamName, '');
+    }
+    final franchise = parts.take(parts.length - 1).join(' ');
+    final suffix = parts.last;
+    return (franchise, suffix);
   }
 
   void _addFinance(String title, double amountCr, String type) {
@@ -1185,4 +1466,18 @@ class GameController extends ChangeNotifier {
       careerLog.removeLast();
     }
   }
+}
+
+class _RecordEntry {
+  const _RecordEntry({
+    this.metric = 0,
+    this.displayValue = '-',
+    this.holder = '-',
+    this.season = 0,
+  });
+
+  final int metric;
+  final String displayValue;
+  final String holder;
+  final int season;
 }

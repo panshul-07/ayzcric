@@ -1,10 +1,24 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
+import '../game/game_controller.dart';
 import '../game/game_scope.dart';
+import '../game/models.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/team_badge.dart';
 
-class FinanceScreen extends StatelessWidget {
+class FinanceScreen extends StatefulWidget {
   const FinanceScreen({super.key});
+
+  @override
+  State<FinanceScreen> createState() => _FinanceScreenState();
+}
+
+class _FinanceScreenState extends State<FinanceScreen> {
+  int fanTab = 0; // 0 my fans, 1 leaderboard
+  bool showAllTimeTrend = true;
+  bool showCareerFanRevenue = false;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +34,10 @@ class FinanceScreen extends StatelessWidget {
 
     final fanRows = controller.fanMovementSeason.entries.toList()
       ..sort((a, b) => b.value.abs().compareTo(a.value.abs()));
+    final trend = showAllTimeTrend
+        ? controller.fanTrendCareer
+        : controller.fanTrendSeason;
+    final fanCountL = controller.userTeam.fans / 100000;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -33,46 +51,7 @@ class FinanceScreen extends StatelessWidget {
         const SizedBox(height: 8),
         Text('₹${controller.userTeam.cashCr.toStringAsFixed(1)} Cr'),
         const SizedBox(height: 12),
-        if (!controller.adsRemoved)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF33240F), Color(0xFF5A3D13)],
-              ),
-              border: Border.all(color: const Color(0xFFC39B2E)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Owner\'s Pack',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Max all facilities + ₹20 Cr bonus + remove ads',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFF4BE2A),
-                      foregroundColor: Colors.black,
-                    ),
-                    onPressed: controller.buyOwnersPack,
-                    child: const Text('₹9.50 Cr'),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        if (!controller.adsRemoved) _OwnersPackCard(controller: controller),
         if (controller.adsRemoved)
           Container(
             padding: const EdgeInsets.all(12),
@@ -183,6 +162,280 @@ class FinanceScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  'Fans',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                _BinaryTab(
+                  left: 'My Fans',
+                  right: 'Leaderboard',
+                  leftSelected: fanTab == 0,
+                  onLeft: () => setState(() => fanTab = 0),
+                  onRight: () => setState(() => fanTab = 1),
+                ),
+                const SizedBox(height: 12),
+                if (fanTab == 0) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${fanCountL.toStringAsFixed(2)}L',
+                          style: const TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'fans\n${controller.fanMovementNet >= 0 ? '↑' : '↓'} ${controller.fanMovementNet.abs()} this season',
+                            style: TextStyle(
+                              color: controller.fanMovementNet >= 0
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Fan Trend',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const Spacer(),
+                            _BinaryTab(
+                              left: 'Season',
+                              right: 'All Time',
+                              leftSelected: !showAllTimeTrend,
+                              compact: true,
+                              onLeft: () =>
+                                  setState(() => showAllTimeTrend = false),
+                              onRight: () =>
+                                  setState(() => showAllTimeTrend = true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 200,
+                          child: _FanTrendChart(values: trend),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerLow,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('AVG ATTENDANCE'),
+                              Text(
+                                '${(22000 + controller.facilityLevel('stadium') * 11000)}',
+                                style: const TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerLow,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('OCCUPANCY'),
+                              const SizedBox(height: 12),
+                              LinearProgressIndicator(
+                                value: min(
+                                  1,
+                                  (controller.userTeam.fans / 100000),
+                                ),
+                                minHeight: 8,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${min(100, ((controller.userTeam.fans / 100000) * 100).round())}%',
+                                style: const TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Financial Impact',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const Spacer(),
+                            _BinaryTab(
+                              left: 'Season',
+                              right: 'Career',
+                              compact: true,
+                              leftSelected: !showCareerFanRevenue,
+                              onLeft: () =>
+                                  setState(() => showCareerFanRevenue = false),
+                              onRight: () =>
+                                  setState(() => showCareerFanRevenue = true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '+${(showCareerFanRevenue ? controller.fanRevenueCareerCr : controller.fanRevenueSeasonCr).toStringAsFixed(1)} Cr',
+                          style: const TextStyle(
+                            fontSize: 52,
+                            color: Color(0xFF39C97A),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const Text('earned from fans'),
+                      ],
+                    ),
+                  ),
+                ],
+                if (fanTab == 1) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    child: const Text(
+                      'Live fan totals\nSeason change shows fan movement since start.',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (int i = 0; i < controller.fanLeaderboard.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          border: i == 0
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                        ),
+                        child: ListTile(
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${i + 1}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              TeamBadge(
+                                branding:
+                                    controller.fanLeaderboard[i]['branding']
+                                        as TeamBranding,
+                                size: 30,
+                              ),
+                            ],
+                          ),
+                          title: Text(
+                            controller.fanLeaderboard[i]['team'] as String,
+                          ),
+                          subtitle: Text(
+                            '${(controller.fanLeaderboard[i]['delta'] as int) >= 0 ? '↑' : '↓'} ${(controller.fanLeaderboard[i]['delta'] as int).abs()}',
+                            style: TextStyle(
+                              color:
+                                  (controller.fanLeaderboard[i]['delta']
+                                          as int) >=
+                                      0
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                          ),
+                          trailing: Text(
+                            '${((controller.fanLeaderboard[i]['fans'] as int) / 100000).toStringAsFixed(2)}L',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   'Fan Movement',
                   style: Theme.of(
                     context,
@@ -222,56 +475,6 @@ class FinanceScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Fan Leaderboard',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                for (int i = 0; i < controller.fanLeaderboard.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerLow,
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          '${i + 1}. ${controller.fanLeaderboard[i]['team']}',
-                        ),
-                        subtitle: Text(
-                          'Δ ${controller.fanLeaderboard[i]['delta']}',
-                          style: TextStyle(
-                            color:
-                                (controller.fanLeaderboard[i]['delta']
-                                        as int) >=
-                                    0
-                                ? Colors.green
-                                : Colors.red,
-                          ),
-                        ),
-                        trailing: Text(
-                          '${controller.fanLeaderboard[i]['fans']} fans',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -331,6 +534,145 @@ class FinanceScreen extends StatelessWidget {
   }
 }
 
+class _OwnersPackCard extends StatelessWidget {
+  const _OwnersPackCard({required this.controller});
+
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF33240F), Color(0xFF5A3D13)],
+        ),
+        border: Border.all(color: const Color(0xFFC39B2E)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Owner\'s Pack',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Max all facilities + ₹20 Cr bonus + remove ads',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFF4BE2A),
+                foregroundColor: Colors.black,
+              ),
+              onPressed: controller.buyOwnersPack,
+              child: const Text('₹9.50 Cr'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BinaryTab extends StatelessWidget {
+  const _BinaryTab({
+    required this.left,
+    required this.right,
+    required this.leftSelected,
+    required this.onLeft,
+    required this.onRight,
+    this.compact = false,
+  });
+
+  final String left;
+  final String right;
+  final bool leftSelected;
+  final VoidCallback onLeft;
+  final VoidCallback onRight;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = compact ? 34.0 : 42.0;
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: Row(
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          _TabCell(
+            label: left,
+            selected: leftSelected,
+            onTap: onLeft,
+            compact: compact,
+          ),
+          _TabCell(
+            label: right,
+            selected: !leftSelected,
+            onTap: onRight,
+            compact: compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabCell extends StatelessWidget {
+  const _TabCell({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.compact,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: compact ? 0 : 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: compact ? 82 : null,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: selected ? Theme.of(context).colorScheme.surface : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? Theme.of(context).colorScheme.onSurface
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FacilityCard extends StatelessWidget {
   const _FacilityCard({
     required this.title,
@@ -381,5 +723,110 @@ class _FacilityCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _FanTrendChart extends StatelessWidget {
+  const _FanTrendChart({required this.values});
+
+  final List<int> values;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _FanTrendPainter(values),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _FanTrendPainter extends CustomPainter {
+  _FanTrendPainter(this.values);
+
+  final List<int> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
+      Paint()..color = const Color(0x0BFFFFFF),
+    );
+
+    if (values.length < 2) {
+      return;
+    }
+
+    final minVal = values.reduce(min).toDouble();
+    final maxVal = values.reduce(max).toDouble();
+    final range = (maxVal - minVal).abs() < 1 ? 1 : (maxVal - minVal);
+
+    final left = 36.0;
+    final right = 10.0;
+    final top = 10.0;
+    final bottom = 24.0;
+    final chart = Rect.fromLTWH(
+      left,
+      top,
+      size.width - left - right,
+      size.height - top - bottom,
+    );
+
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..strokeWidth = 1;
+    for (int i = 0; i <= 5; i++) {
+      final y = chart.top + chart.height * (i / 5);
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
+    }
+    for (int i = 0; i <= 10; i++) {
+      final x = chart.left + chart.width * (i / 10);
+      canvas.drawLine(Offset(x, chart.top), Offset(x, chart.bottom), grid);
+    }
+
+    final line = Paint()
+      ..color = const Color(0xFF3F8CFF)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = const Color(0x223F8CFF)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final fillPath = Path();
+    for (int i = 0; i < values.length; i++) {
+      final dx = chart.left + (i / (values.length - 1)) * chart.width;
+      final dy = chart.bottom - ((values[i] - minVal) / range) * chart.height;
+      if (i == 0) {
+        path.moveTo(dx, dy);
+        fillPath.moveTo(dx, chart.bottom);
+        fillPath.lineTo(dx, dy);
+      } else {
+        path.lineTo(dx, dy);
+        fillPath.lineTo(dx, dy);
+      }
+    }
+    fillPath.lineTo(chart.right, chart.bottom);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fill);
+    canvas.drawPath(path, line);
+
+    final labels = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i <= 4; i++) {
+      final value = minVal + ((4 - i) / 4) * range;
+      labels.text = TextSpan(
+        text: '${(value / 100000).toStringAsFixed(1)}L',
+        style: const TextStyle(fontSize: 10, color: Colors.white70),
+      );
+      labels.layout();
+      final y = chart.top + chart.height * (i / 4);
+      labels.paint(canvas, Offset(2, y - labels.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FanTrendPainter oldDelegate) {
+    return oldDelegate.values != values;
   }
 }
