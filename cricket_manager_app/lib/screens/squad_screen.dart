@@ -45,6 +45,16 @@ class _SquadScreenState extends State<SquadScreen> {
         ),
         const SizedBox(height: 8),
         Text('Train players, manage playing XI, and monitor form/fitness.'),
+        if (controller.selectedImpactPlayer != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Impact Player: ${controller.selectedImpactPlayer!.name}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -175,6 +185,20 @@ class _SquadScreenState extends State<SquadScreen> {
                             onPressed: () =>
                                 controller.trainPlayer(player.id, 'Fitness'),
                             child: const Text('Fitness Block (-0.35)'),
+                          ),
+                          OutlinedButton(
+                            onPressed: player.inPlayingXI || player.injured
+                                ? null
+                                : () =>
+                                      controller.setImpactCandidate(player.id),
+                            child: const Text('Set as Impact Player'),
+                          ),
+                          OutlinedButton(
+                            onPressed:
+                                controller.selectedImpactPlayer?.id == player.id
+                                ? () => controller.setImpactCandidate(null)
+                                : null,
+                            child: const Text('Clear Impact'),
                           ),
                         ],
                       ),

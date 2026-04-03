@@ -28,10 +28,15 @@ class WagonWheel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalShots = shotZones.values.fold<int>(0, (a, b) => a + b);
     final boundaryPct = totalBalls == 0 ? 0 : (boundaries * 100 / totalBalls);
     final rotationPct = totalBalls == 0
         ? 0
         : ((singles + doubles + triples) * 100 / totalBalls);
+    final topZone = shotZones.entries.fold<MapEntry<String, int>>(
+      const MapEntry<String, int>('straight', 0),
+      (a, b) => a.value >= b.value ? a : b,
+    );
 
     final info = Wrap(
       spacing: 8,
@@ -49,6 +54,11 @@ class WagonWheel extends StatelessWidget {
           value: '${rotationPct.toStringAsFixed(1)}%',
         ),
         _MetricChip(label: 'Dots', value: '$dots'),
+        _MetricChip(
+          label: 'Top Zone',
+          value: '${_zoneLabel(topZone.key)} (${topZone.value})',
+        ),
+        _MetricChip(label: 'Shot Count', value: '$totalShots'),
       ],
     );
 
@@ -88,6 +98,25 @@ class WagonWheel extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _zoneLabel(String zone) {
+    switch (zone) {
+      case 'thirdman':
+        return 'Third Man';
+      case 'midwicket':
+        return 'Midwicket';
+      case 'straight':
+        return 'Straight';
+      case 'cover':
+        return 'Cover';
+      case 'square':
+        return 'Square';
+      case 'fine':
+        return 'Fine Leg';
+      default:
+        return zone;
+    }
   }
 }
 
@@ -140,6 +169,22 @@ class _WagonWheelPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius + 24, fieldFill);
     canvas.drawCircle(center, radius + 24, boundaryLine);
+    canvas.drawCircle(
+      center,
+      radius + 8,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0x55498B6D)
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.65,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0x33498B6D)
+        ..strokeWidth = 1.0,
+    );
 
     // pitch
     canvas.drawRRect(
@@ -216,6 +261,21 @@ class _WagonWheelPainter extends CustomPainter {
       textPainter.layout(maxWidth: 74);
       textPainter.paint(canvas, labelOffset);
     });
+
+    final compass = TextPainter(textDirection: TextDirection.ltr);
+    compass.text = const TextSpan(
+      text: 'Batter',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: Colors.black54,
+      ),
+    );
+    compass.layout();
+    compass.paint(
+      canvas,
+      Offset(center.dx - compass.width / 2, center.dy + radius + 30),
+    );
   }
 
   String _short(String zone) {

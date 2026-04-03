@@ -25,6 +25,7 @@ class MatchCenterScreen extends StatelessWidget {
     final currentRr = innings.runRate;
     final reqRr = match.requiredRunRateFor(innings);
     final projected = match.projectedScoreFor(innings);
+    final impactReady = match.canActivateUserImpact;
     final overRuns = List<int>.of(innings.overRuns);
     if (innings.balls % 6 != 0) {
       overRuns.add(innings.currentOverRuns);
@@ -120,6 +121,25 @@ class MatchCenterScreen extends StatelessWidget {
                 Text(
                   'Striker: ${innings.striker.name}   Non-striker: ${innings.nonStriker.name}',
                 ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _InsightChip(
+                      label: 'Your Impact',
+                      value: match.userImpactName,
+                    ),
+                    _InsightChip(
+                      label: 'Opp Impact',
+                      value: match.aiImpactName,
+                    ),
+                    _InsightChip(
+                      label: 'Impact Status',
+                      value: match.userImpactUsed ? 'Used' : 'Available',
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Text('Aggression'),
                 Slider(
@@ -149,6 +169,13 @@ class MatchCenterScreen extends StatelessWidget {
                       label: Text(
                         controller.autoPlay ? 'Stop Auto' : 'Auto Play',
                       ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: impactReady
+                          ? controller.activateImpactPlayer
+                          : null,
+                      icon: const Icon(Icons.flash_on),
+                      label: const Text('Activate Impact'),
                     ),
                   ],
                 ),

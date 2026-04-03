@@ -35,11 +35,24 @@ Output:
 5. Configure countries/pricing.
 6. Roll out to production after internal and closed testing pass.
 
+## 3.1) In-app purchases (Owner's Pack)
+1. In Play Console -> Monetize -> Products -> In-app products.
+2. Create product id:
+   - `owners_pack_unlock`
+3. Set price and publish the product.
+4. Add license testers in Play Console.
+5. Replace the temporary app-side purchase action with Google Play Billing call
+   and map successful purchase to:
+   - remove ads
+   - max facilities
+   - bonus in-game currency
+
 ## 4) Required before production
 - Privacy Policy URL
 - Support email/contact
 - Crash monitoring (recommended)
 - App signing by Google Play (recommended)
+- Billing declaration (if in-app products are enabled)
 
 ## 5) What I can do next automatically
 - Generate launch icon + splash updates

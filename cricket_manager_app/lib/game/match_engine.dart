@@ -9,6 +9,8 @@ class LiveMatchEngine {
     required List<Player> aiXI,
     required this.userTeamName,
     required this.aiTeamName,
+    this.userImpactPlayer,
+    this.aiImpactPlayer,
     required Random random,
   }) : _random = random,
        _userXI = userXI,
@@ -36,6 +38,8 @@ class LiveMatchEngine {
   final Random _random;
   final List<Player> _userXI;
   final List<Player> _aiXI;
+  final Player? userImpactPlayer;
+  final Player? aiImpactPlayer;
 
   late final LiveInningsState _firstInnings;
   late final LiveInningsState _secondInnings;
@@ -45,6 +49,8 @@ class LiveMatchEngine {
   String statusText = '';
   final List<MatchBallEvent> timeline = <MatchBallEvent>[];
   double aggression = 0.56;
+  bool userImpactUsed = false;
+  bool aiImpactUsed = false;
 
   int? _target;
 
@@ -60,6 +66,13 @@ class LiveMatchEngine {
 
   bool get firstInningsDone => _firstInnings.complete;
   int? get target => _target;
+  bool get userImpactAvailable => userImpactPlayer != null && !userImpactUsed;
+  String get userImpactName => userImpactPlayer?.name ?? 'None';
+  String get aiImpactName => aiImpactPlayer?.name ?? 'None';
+  bool get canActivateUserImpact =>
+      !completed &&
+      userImpactAvailable &&
+      activeInnings.balls <= (format.oversPerInnings * 3);
 
   double projectedScoreFor(LiveInningsState innings) {
     if (innings.balls == 0) return 0;
@@ -322,11 +335,24 @@ class LiveMatchEngine {
         ? statusText
         : '${innings.battingTeam} ${innings.runs}/${innings.wickets} in ${innings.overText} overs';
 
+    if (!completed && !aiImpactUsed && _random.nextDouble() < 0.015) {
+      final aiEvent = activateAiImpactPlayer();
+      if (aiEvent != null) {
+        timeline.insert(0, aiEvent);
+      }
+    }
+
     return event;
   }
 
   void _transitionIfNeeded() {
     if (_firstInnings.complete && _target == null) {
+      if (!aiImpactUsed && aiImpactPlayer != null) {
+        final aiEvent = activateAiImpactPlayer();
+        if (aiEvent != null) {
+          timeline.insert(0, aiEvent);
+        }
+      }
       _target = _firstInnings.runs + 1;
       statusText =
           'Innings break. Target for ${_secondInnings.battingTeam}: $_target';
@@ -417,6 +443,126 @@ class LiveMatchEngine {
       userWon: userWon,
       summary: statusText,
     );
+  }
+
+  MatchBallEvent? activateUserImpactPlayer() {
+    if (!canActivateUserImpact) return null;
+    final incoming = userImpactPlayer;
+    if (incoming == null) return null;
+    final event = _activateImpact(
+      teamName: userTeamName,
+      incoming: incoming,
+      usedByUser: true,
+    );
+    return event;
+  }
+
+  MatchBallEvent? activateAiImpactPlayer() {
+    if (completed || aiImpactUsed || aiImpactPlayer == null) return null;
+    return _activateImpact(
+      teamName: aiTeamName,
+      incoming: aiImpactPlayer!,
+      usedByUser: false,
+    );
+  }
+
+  MatchBallEvent? _activateImpact({
+    required String teamName,
+    required Player incoming,
+    required bool usedByUser,
+  }) {
+    final xi = teamName == userTeamName ? _userXI : _aiXI;
+    if (xi.any((p) => p.id == incoming.id)) return null;
+
+    final replaceIndex = _pickImpactReplaceIndex(teamName, xi);
+    if (replaceIndex == -1) return null;
+
+    final outgoing = xi[replaceIndex];
+    final promoted = incoming.copyWith(inPlayingXI: true, injured: false);
+    xi[replaceIndex] = promoted;
+
+    _replaceInningsPlayer(
+      _firstInnings,
+      teamName,
+      outgoing.id,
+      promoted,
+      replaceIndex,
+    );
+    _replaceInningsPlayer(
+      _secondInnings,
+      teamName,
+      outgoing.id,
+      promoted,
+      replaceIndex,
+    );
+
+    if (usedByUser) {
+      userImpactUsed = true;
+    } else {
+      aiImpactUsed = true;
+    }
+
+    statusText =
+        '$teamName Impact Sub: ${promoted.name} in, ${outgoing.name} out.';
+    return MatchBallEvent(
+      overText: activeInnings.overText,
+      description: statusText,
+      runs: 0,
+      isWicket: false,
+      batter: promoted.name,
+      bowler: '',
+    );
+  }
+
+  int _pickImpactReplaceIndex(String teamName, List<Player> xi) {
+    if (xi.isEmpty) return -1;
+    final active = activeInnings;
+    final blocked = <int>{};
+    if (active.battingTeam == teamName) {
+      blocked.add(active.strikerIndex);
+      blocked.add(active.nonStrikerIndex);
+      for (int i = 0; i < active.nextBatterIndex; i++) {
+        blocked.add(i);
+      }
+    }
+
+    int bestIndex = -1;
+    int lowest = 999;
+    for (int i = 0; i < xi.length; i++) {
+      if (blocked.contains(i)) continue;
+      if (xi[i].overall < lowest) {
+        lowest = xi[i].overall;
+        bestIndex = i;
+      }
+    }
+    if (bestIndex != -1) return bestIndex;
+
+    for (int i = 0; i < xi.length; i++) {
+      if (active.battingTeam == teamName &&
+          (i == active.strikerIndex || i == active.nonStrikerIndex)) {
+        continue;
+      }
+      return i;
+    }
+    return -1;
+  }
+
+  void _replaceInningsPlayer(
+    LiveInningsState innings,
+    String teamName,
+    String outgoingId,
+    Player incoming,
+    int fallbackIndex,
+  ) {
+    if (innings.battingTeam != teamName) return;
+    final idx = innings.battingOrder.indexWhere((p) => p.id == outgoingId);
+    if (idx != -1) {
+      innings.battingOrder[idx] = incoming;
+      return;
+    }
+    if (fallbackIndex >= 0 && fallbackIndex < innings.battingOrder.length) {
+      innings.battingOrder[fallbackIndex] = incoming;
+    }
   }
 
   String _pickShotZone(int run) {

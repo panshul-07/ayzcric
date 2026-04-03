@@ -38,6 +38,23 @@ class GameController extends ChangeNotifier {
   bool _resultCommitted = false;
 
   String statusBanner = 'Welcome, Chairman. Build your dynasty.';
+  String? impactCandidateId;
+  bool adsRemoved = false;
+  int stadiumLevel = 1;
+  int trainingLevel = 1;
+  int medicalLevel = 1;
+  int scoutingLevel = 1;
+
+  final Map<String, int> fanMovementSeason = <String, int>{
+    'Rivalry Swings': 0,
+    'Match Results': 0,
+    'Star Signings': 0,
+    'Playoff Matches': 0,
+    'Playoff Reputation': 0,
+    'Season Finish': 0,
+    'League Position': 0,
+    'Championship': 0,
+  };
 
   void _initialize() {
     userTeam = _seed.createUserTeam();
@@ -122,6 +139,116 @@ class GameController extends ChangeNotifier {
     return <Player>[...xi, ...extras];
   }
 
+  List<Player> get impactBenchCandidates =>
+      userTeam.squad.where((p) => !p.inPlayingXI && !p.injured).toList()
+        ..sort((a, b) => b.overall.compareTo(a.overall));
+
+  Player? get selectedImpactPlayer {
+    if (impactCandidateId == null) return null;
+    for (final p in userTeam.squad) {
+      if (p.id == impactCandidateId) return p;
+    }
+    return null;
+  }
+
+  int get facilitiesCompositeLevel =>
+      stadiumLevel + trainingLevel + medicalLevel + scoutingLevel;
+
+  int get fanMovementNet =>
+      fanMovementSeason.values.fold<int>(0, (a, b) => a + b);
+
+  List<Map<String, Object>> get leagueTopCards {
+    final all = <Player>[
+      ...userTeam.squad,
+      ...auctionLots.map((e) => e.player),
+    ];
+    if (all.isEmpty) return <Map<String, Object>>[];
+    final runStar = List<Player>.of(all)
+      ..sort((a, b) => b.hitting.compareTo(a.hitting));
+    final wicketStar = List<Player>.of(all)
+      ..sort((a, b) => b.bowling.compareTo(a.bowling));
+    final strikeStar = List<Player>.of(all)
+      ..sort((a, b) => b.battingRating.compareTo(a.battingRating));
+    final economyStar = List<Player>.of(all)
+      ..sort((a, b) => b.economySkill.compareTo(a.economySkill));
+    final sixStar = List<Player>.of(all)
+      ..sort((a, b) => b.overall.compareTo(a.overall));
+    final potmStar = List<Player>.of(all)
+      ..sort((a, b) => b.currentImpact.compareTo(a.currentImpact));
+
+    return <Map<String, Object>>[
+      {
+        'title': 'Most Runs',
+        'badge': 'Orange Cap',
+        'value': '${920 + (matchesPlayed * 38) + runStar.first.hitting}',
+        'player': runStar.first.name,
+        'color': 0xFFF57C3B,
+      },
+      {
+        'title': 'Most Wickets',
+        'badge': 'Purple Cap',
+        'value':
+            '${14 + (matchesPlayed ~/ 2) + (wicketStar.first.bowling ~/ 7)}',
+        'player': wicketStar.first.name,
+        'color': 0xFF8A63FF,
+      },
+      {
+        'title': 'Best Strike Rate',
+        'badge': 'Super Striker',
+        'value': (128 + (strikeStar.first.battingRating * 0.75))
+            .toStringAsFixed(1),
+        'player': strikeStar.first.name,
+        'color': 0xFF3F8CFF,
+      },
+      {
+        'title': 'Best Economy',
+        'badge': 'Economy Ace',
+        'value': (10.6 - (economyStar.first.economySkill / 28)).toStringAsFixed(
+          2,
+        ),
+        'player': economyStar.first.name,
+        'color': 0xFF1EAE78,
+      },
+      {
+        'title': 'Most POTM',
+        'badge': 'Match MVP',
+        'value': '${2 + (potmStar.first.currentImpact ~/ 14)}',
+        'player': potmStar.first.name,
+        'color': 0xFFB2BEC8,
+      },
+      {
+        'title': 'Most Sixes',
+        'badge': 'Sky Hitter',
+        'value': '${22 + (sixStar.first.hitting ~/ 2)}',
+        'player': sixStar.first.name,
+        'color': 0xFFFF6F61,
+      },
+    ];
+  }
+
+  List<Map<String, Object>> get fanLeaderboard {
+    final sorted = List<TeamStanding>.of(standings)
+      ..sort((a, b) {
+        final byPts = b.points.compareTo(a.points);
+        if (byPts != 0) return byPts;
+        return b.netRunRate.compareTo(a.netRunRate);
+      });
+
+    return List<Map<String, Object>>.generate(sorted.length, (int i) {
+      final team = sorted[i];
+      final isUser = team.name == userTeam.name;
+      final base = isUser
+          ? userTeam.fans
+          : (46000 + (sorted.length - i) * 4200);
+      final swing = ((team.netRunRate * 4200) + (team.wins * 540)).round();
+      return <String, Object>{
+        'team': team.name,
+        'fans': base + swing,
+        'delta': swing,
+      };
+    });
+  }
+
   void setFormat(MatchFormat format) {
     if (liveMatch != null && !liveMatch!.completed) {
       statusBanner = 'Finish current match before changing format.';
@@ -130,6 +257,17 @@ class GameController extends ChangeNotifier {
     }
     matchFormat = format;
     statusBanner = 'Match format switched to ${format.label}.';
+    notifyListeners();
+  }
+
+  void setImpactCandidate(String? playerId) {
+    impactCandidateId = playerId;
+    if (playerId == null) {
+      statusBanner = 'Impact player cleared.';
+    } else {
+      final player = userTeam.squad.firstWhere((p) => p.id == playerId);
+      statusBanner = 'Impact player set: ${player.name}.';
+    }
     notifyListeners();
   }
 
@@ -179,17 +317,33 @@ class GameController extends ChangeNotifier {
     _resultCommitted = false;
     autoPlay = false;
 
+    final benchCandidates = impactBenchCandidates;
+    final selectedImpact =
+        (selectedImpactPlayer != null &&
+            !selectedImpactPlayer!.inPlayingXI &&
+            !selectedImpactPlayer!.injured)
+        ? selectedImpactPlayer
+        : (benchCandidates.isNotEmpty ? benchCandidates.first : null);
+    impactCandidateId ??= selectedImpact?.id;
+    final aiImpact = _seed.createPlayer(
+      id: 'ai-impact-${fixture.round}',
+      inXI: false,
+    );
+
     liveMatch = LiveMatchEngine(
       format: matchFormat,
       userXI: xi,
       aiXI: _buildOpponentXI(fixture.opponent),
       userTeamName: userTeam.name,
       aiTeamName: fixture.opponent,
+      userImpactPlayer: selectedImpact,
+      aiImpactPlayer: aiImpact,
       random: _random,
     );
 
     statusBanner =
-        'Round ${fixture.round}: ${fixture.home ? 'Home' : 'Away'} vs ${fixture.opponent}';
+        'Round ${fixture.round}: ${fixture.home ? 'Home' : 'Away'} vs ${fixture.opponent}. '
+        'Impact: ${selectedImpact?.name ?? 'None selected'}';
     notifyListeners();
   }
 
@@ -236,6 +390,31 @@ class GameController extends ChangeNotifier {
   void setAggression(double aggression) {
     if (liveMatch == null || liveMatch!.completed) return;
     liveMatch!.aggression = aggression.clamp(0.15, 0.92);
+    notifyListeners();
+  }
+
+  void activateImpactPlayer() {
+    final match = liveMatch;
+    if (match == null || match.completed) {
+      statusBanner = 'No active match for impact substitution.';
+      notifyListeners();
+      return;
+    }
+
+    final event = match.activateUserImpactPlayer();
+    if (event == null) {
+      statusBanner =
+          'Impact sub unavailable now. Use it earlier in the innings.';
+      notifyListeners();
+      return;
+    }
+
+    match.timeline.insert(0, event);
+    if (match.timeline.length > 30) {
+      match.timeline.removeLast();
+    }
+    statusBanner = event.description;
+    _log(event.description);
     notifyListeners();
   }
 
@@ -287,8 +466,11 @@ class GameController extends ChangeNotifier {
       points: userTeam.points + (result.userWon ? 2 : 0),
       netRunRate: userTeam.netRunRate + nrrDelta,
       morale: (userTeam.morale + (result.userWon ? 4 : -3)).clamp(30, 99),
-      fans: userTeam.fans + (result.userWon ? 4200 : 1300),
     );
+    _addFanMovement('Match Results', result.userWon ? 4200 : 1300);
+    if (margin >= 20) {
+      _addFanMovement('Rivalry Swings', 1400 + margin * 3);
+    }
 
     final ticketRevenue =
         (2.2 + (result.userWon ? 0.7 : 0.2) + (userTeam.sponsorLevel * 0.25));
@@ -379,10 +561,15 @@ class GameController extends ChangeNotifier {
         cashCr: userTeam.cashCr + 8.5,
         morale: (userTeam.morale + 8).clamp(30, 99),
       );
+      _addFanMovement('Championship', 8200);
       _addFinance('League champion prize', 8.5, 'income');
       _log('Season $seasonYear ended: Champions.');
       statusBanner = 'Season complete. You finished #1 and won the title.';
     } else {
+      _addFanMovement(
+        'Season Finish',
+        rank <= 4 ? 4600 : (rank <= 6 ? 1400 : -2200),
+      );
       _log('Season $seasonYear ended: finished #$rank.');
       statusBanner = 'Season complete. Final rank: #$rank.';
     }
@@ -496,6 +683,7 @@ class GameController extends ChangeNotifier {
     _log(
       'Signed ${signedPlayer.name} for ₹${lot.currentBidCr.toStringAsFixed(1)} Cr.',
     );
+    _addFanMovement('Star Signings', 2200 + signedPlayer.overall * 12);
     _updateObjectives();
     statusBanner = 'Signed ${signedPlayer.name}.';
     notifyListeners();
@@ -612,10 +800,9 @@ class GameController extends ChangeNotifier {
     }
 
     final fanBoost = 4500 + _random.nextInt(2500);
-    userTeam = userTeam.copyWith(
-      cashCr: userTeam.cashCr - cost,
-      fans: userTeam.fans + fanBoost,
-    );
+    userTeam = userTeam.copyWith(cashCr: userTeam.cashCr - cost);
+    _addFanMovement('Star Signings', fanBoost ~/ 2);
+    _addFanMovement('Match Results', fanBoost ~/ 2);
     _addFinance('Marketing campaign', -cost, 'marketing');
     statusBanner = 'Campaign finished: +$fanBoost fans.';
     _updateObjectives();
@@ -715,27 +902,7 @@ class GameController extends ChangeNotifier {
   }
 
   void upgradeInfrastructure() {
-    final cost = 3.0 + userTeam.infraLevel * 1.8;
-    if (userTeam.cashCr < cost) {
-      statusBanner = 'Need ₹${cost.toStringAsFixed(1)} Cr for next upgrade.';
-      notifyListeners();
-      return;
-    }
-
-    userTeam = userTeam.copyWith(
-      cashCr: userTeam.cashCr - cost,
-      infraLevel: userTeam.infraLevel + 1,
-      morale: (userTeam.morale + 2).clamp(30, 99),
-    );
-
-    final updatedSquad = userTeam.squad
-        .map((p) => p.copyWith(fitness: (p.fitness + 1).clamp(30, 99)))
-        .toList();
-    userTeam = userTeam.copyWith(squad: updatedSquad);
-
-    _addFinance('Infrastructure upgrade', -cost, 'infrastructure');
-    statusBanner = 'Infrastructure upgraded to level ${userTeam.infraLevel}.';
-    notifyListeners();
+    upgradeFacility('stadium');
   }
 
   void negotiateSponsor() {
@@ -751,7 +918,140 @@ class GameController extends ChangeNotifier {
       cashCr: userTeam.cashCr + 4.2,
     );
     _addFinance('Sponsor renegotiation bonus', 4.2, 'sponsorship');
+    _addFanMovement('Playoff Reputation', 2200);
     statusBanner = 'Sponsor upgraded to tier ${userTeam.sponsorLevel}.';
+    notifyListeners();
+  }
+
+  int facilityLevel(String facilityId) {
+    switch (facilityId) {
+      case 'stadium':
+        return stadiumLevel;
+      case 'training':
+        return trainingLevel;
+      case 'medical':
+        return medicalLevel;
+      case 'scouting':
+        return scoutingLevel;
+      default:
+        return 1;
+    }
+  }
+
+  int facilityMaxLevel(String facilityId) {
+    switch (facilityId) {
+      case 'stadium':
+        return 4;
+      case 'training':
+        return 3;
+      case 'medical':
+        return 3;
+      case 'scouting':
+        return 3;
+      default:
+        return 3;
+    }
+  }
+
+  double facilityUpgradeCost(String facilityId) {
+    final level = facilityLevel(facilityId);
+    switch (facilityId) {
+      case 'stadium':
+        return 2.8 + level * 1.6;
+      case 'training':
+        return 2.2 + level * 1.4;
+      case 'medical':
+        return 1.8 + level * 1.2;
+      case 'scouting':
+        return 2.0 + level * 1.25;
+      default:
+        return 3.0;
+    }
+  }
+
+  void upgradeFacility(String facilityId) {
+    final level = facilityLevel(facilityId);
+    final maxLevel = facilityMaxLevel(facilityId);
+    if (level >= maxLevel) {
+      statusBanner =
+          '${facilityId[0].toUpperCase()}${facilityId.substring(1)} is maxed.';
+      notifyListeners();
+      return;
+    }
+
+    final cost = facilityUpgradeCost(facilityId);
+    if (userTeam.cashCr < cost) {
+      statusBanner = 'Need ₹${cost.toStringAsFixed(1)} Cr for this upgrade.';
+      notifyListeners();
+      return;
+    }
+
+    switch (facilityId) {
+      case 'stadium':
+        stadiumLevel += 1;
+        _addFanMovement('League Position', 1200);
+        break;
+      case 'training':
+        trainingLevel += 1;
+        break;
+      case 'medical':
+        medicalLevel += 1;
+        break;
+      case 'scouting':
+        scoutingLevel += 1;
+        break;
+    }
+
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - cost,
+      infraLevel: facilitiesCompositeLevel,
+      morale: (userTeam.morale + 1).clamp(30, 99),
+      squad: userTeam.squad
+          .map(
+            (p) => p.copyWith(
+              fitness: (p.fitness + (facilityId == 'medical' ? 2 : 1)).clamp(
+                30,
+                99,
+              ),
+            ),
+          )
+          .toList(),
+    );
+
+    _addFinance('Facility upgrade: $facilityId', -cost, 'infrastructure');
+    statusBanner =
+        '$facilityId upgraded to level ${facilityLevel(facilityId)}.';
+    notifyListeners();
+  }
+
+  void buyOwnersPack() {
+    if (adsRemoved) {
+      statusBanner = 'Owner\'s Pack already active.';
+      notifyListeners();
+      return;
+    }
+
+    const cost = 9.5;
+    if (userTeam.cashCr < cost) {
+      statusBanner = 'Need ₹${cost.toStringAsFixed(1)} Cr for Owner\'s Pack.';
+      notifyListeners();
+      return;
+    }
+
+    adsRemoved = true;
+    stadiumLevel = facilityMaxLevel('stadium');
+    trainingLevel = facilityMaxLevel('training');
+    medicalLevel = facilityMaxLevel('medical');
+    scoutingLevel = facilityMaxLevel('scouting');
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - cost + 20,
+      infraLevel: facilitiesCompositeLevel,
+      morale: (userTeam.morale + 6).clamp(30, 99),
+    );
+    _addFanMovement('Playoff Reputation', 6000);
+    _addFinance('Owner\'s Pack purchase', -cost, 'iap');
+    _addFinance('Owner\'s Pack bonus credit', 20, 'iap_bonus');
+    statusBanner = 'Owner\'s Pack activated. Facilities maxed + ₹20 Cr bonus.';
     notifyListeners();
   }
 
@@ -764,6 +1064,7 @@ class GameController extends ChangeNotifier {
 
     seasonYear += 1;
     youthSignings = 0;
+    impactCandidateId = null;
 
     final rolloverCash = userTeam.cashCr + 6.5;
     final refreshedSquad = userTeam.squad.map((p) {
@@ -801,6 +1102,9 @@ class GameController extends ChangeNotifier {
     liveMatch = null;
     _resultCommitted = false;
     fired = false;
+    for (final key in fanMovementSeason.keys) {
+      fanMovementSeason[key] = 0;
+    }
 
     if (seasonYear % 3 == 0) {
       auctionLots = _seed.createAuctionLots();
@@ -837,9 +1141,26 @@ class GameController extends ChangeNotifier {
     seasonYear = 2026;
     youthSignings = 0;
     fired = false;
+    impactCandidateId = null;
+    adsRemoved = false;
+    stadiumLevel = 1;
+    trainingLevel = 1;
+    medicalLevel = 1;
+    scoutingLevel = 1;
+    for (final key in fanMovementSeason.keys) {
+      fanMovementSeason[key] = 0;
+    }
     _initialize();
     statusBanner = 'New career started.';
     notifyListeners();
+  }
+
+  void _addFanMovement(String reason, int delta) {
+    if (!fanMovementSeason.containsKey(reason)) return;
+    fanMovementSeason[reason] = (fanMovementSeason[reason] ?? 0) + delta;
+    userTeam = userTeam.copyWith(
+      fans: (userTeam.fans + delta).clamp(12000, 950000).toInt(),
+    );
   }
 
   void _addFinance(String title, double amountCr, String type) {
