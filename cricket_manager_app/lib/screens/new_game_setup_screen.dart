@@ -297,51 +297,67 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
   }
 
   Widget _bottomBar(GameController controller) {
+    final primary = FilledButton(
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFFF46A2F),
+        foregroundColor: Colors.white,
+      ),
+      onPressed: () {
+        if (step == 0) {
+          if (selectedTeam == null) return;
+          controller.chooseFranchiseFromTemplate(selectedTeam!);
+          setState(() => step = 1);
+          return;
+        }
+        if (step == 1) {
+          setState(() => step = 2);
+          return;
+        }
+        if (step == 2) {
+          if (selectedCaptainId == null) return;
+          controller.setClubCaptain(selectedCaptainId!);
+          setState(() => step = 3);
+          return;
+        }
+        widget.onComplete();
+      },
+      child: Text(
+        step == 3 ? 'Take Charge' : (step == 0 ? 'Start Game' : 'Next'),
+      ),
+    );
+
+    final secondary = OutlinedButton(
+      onPressed: () => setState(() => step -= 1),
+      child: const Text('Back'),
+    );
+
     return Container(
       color: const Color(0xFF0C0F14),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      child: Row(
-        children: [
-          if (step > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => step -= 1),
-                child: const Text('Back'),
-              ),
-            ),
-          if (step > 0) const SizedBox(width: 10),
-          Expanded(
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF46A2F),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(54),
-              ),
-              onPressed: () {
-                if (step == 0) {
-                  if (selectedTeam == null) return;
-                  controller.chooseFranchiseFromTemplate(selectedTeam!);
-                  setState(() => step = 1);
-                  return;
-                }
-                if (step == 1) {
-                  setState(() => step = 2);
-                  return;
-                }
-                if (step == 2) {
-                  if (selectedCaptainId == null) return;
-                  controller.setClubCaptain(selectedCaptainId!);
-                  setState(() => step = 3);
-                  return;
-                }
-                widget.onComplete();
-              },
-              child: Text(
-                step == 3 ? 'Take Charge' : (step == 0 ? 'Start Game' : 'Next'),
-              ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked = constraints.maxWidth < 640;
+          if (step == 0) {
+            return SizedBox(width: double.infinity, child: primary);
+          }
+          if (stacked) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(width: double.infinity, child: primary),
+                const SizedBox(height: 10),
+                SizedBox(width: double.infinity, child: secondary),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: secondary),
+              const SizedBox(width: 10),
+              Expanded(child: primary),
+            ],
+          );
+        },
       ),
     );
   }
