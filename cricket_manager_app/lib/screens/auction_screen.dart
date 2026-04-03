@@ -15,6 +15,9 @@ class _AuctionScreenState extends State<AuctionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final titleSize = width < 420 ? 28.0 : (width < 900 ? 34.0 : 38.0);
+    final sectionSize = width < 420 ? 20.0 : 24.0;
     final controller = GameScope.of(context);
     final lots = controller.auctionLots;
     AuctionLot? selected;
@@ -30,11 +33,11 @@ class _AuctionScreenState extends State<AuctionScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
+        Text(
           'Auction Room',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 40,
+            fontSize: titleSize,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -90,11 +93,11 @@ class _AuctionScreenState extends State<AuctionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Auction Lots',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 30,
+                  fontSize: sectionSize,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -155,11 +158,11 @@ class _AuctionScreenState extends State<AuctionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Bid Console',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 30,
+                    fontSize: sectionSize,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -245,7 +248,7 @@ class _AuctionScreenState extends State<AuctionScreen> {
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,
-              fontSize: 40,
+              fontSize: 28,
             ),
           ),
           if (subtitle != null)

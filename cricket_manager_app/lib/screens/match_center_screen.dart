@@ -11,6 +11,9 @@ class MatchCenterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final titleSize = width < 420 ? 28.0 : (width < 900 ? 34.0 : 38.0);
+    final sectionSize = width < 420 ? 20.0 : 24.0;
     final controller = GameScope.of(context);
     final match = controller.liveMatch;
 
@@ -40,11 +43,11 @@ class MatchCenterScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
+        Text(
           'Match Centre',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 40,
+            fontSize: titleSize,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -107,9 +110,9 @@ class MatchCenterScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 '${innings.battingTeam} batting',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 30,
+                  fontSize: sectionSize,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -198,7 +201,7 @@ class MatchCenterScreen extends StatelessWidget {
                 'Live Charts',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 30,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -276,7 +279,7 @@ class MatchCenterScreen extends StatelessWidget {
                 'Ball-by-Ball',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 30,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -342,7 +345,7 @@ class MatchCenterScreen extends StatelessWidget {
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 38,
+              fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),

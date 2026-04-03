@@ -163,6 +163,13 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
             ),
             useMaterial3: true,
             scaffoldBackgroundColor: const Color(0xFF0C0F14),
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            textTheme: ThemeData.dark().textTheme.apply(
+              bodyColor: const Color(0xFFE8EEF5),
+              displayColor: const Color(0xFFE8EEF5),
+              decoration: TextDecoration.none,
+              decorationColor: Colors.transparent,
+            ),
             filledButtonTheme: FilledButtonThemeData(
               style: FilledButton.styleFrom(
                 minimumSize: const Size(120, 50),
@@ -216,7 +223,7 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
               data: media.copyWith(
                 textScaler: media.textScaler.clamp(
                   minScaleFactor: 0.9,
-                  maxScaleFactor: 1.15,
+                  maxScaleFactor: 1.0,
                 ),
               ),
               child: child!,
