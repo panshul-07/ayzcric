@@ -1209,27 +1209,28 @@ class GameController extends ChangeNotifier {
       return;
     }
 
-    const cost = 9.5;
-    if (userTeam.cashCr < cost) {
-      statusBanner = 'Need ₹${cost.toStringAsFixed(1)} Cr for Owner\'s Pack.';
-      notifyListeners();
-      return;
-    }
-
     adsRemoved = true;
     stadiumLevel = facilityMaxLevel('stadium');
     trainingLevel = facilityMaxLevel('training');
     medicalLevel = facilityMaxLevel('medical');
     scoutingLevel = facilityMaxLevel('scouting');
     userTeam = userTeam.copyWith(
-      cashCr: userTeam.cashCr - cost + 20,
+      cashCr: userTeam.cashCr + 20,
       infraLevel: facilitiesCompositeLevel,
       morale: (userTeam.morale + 6).clamp(30, 99),
     );
     _addFanMovement('Playoff Reputation', 6000);
-    _addFinance('Owner\'s Pack purchase', -cost, 'iap');
+    _addFinance('Owner\'s Pack purchase', 0, 'iap');
     _addFinance('Owner\'s Pack bonus credit', 20, 'iap_bonus');
     statusBanner = 'Owner\'s Pack activated. Facilities maxed + ₹20 Cr bonus.';
+    notifyListeners();
+  }
+
+  void grantAuctionCash(double amountCr, {String source = 'Cash Pack'}) {
+    if (amountCr <= 0) return;
+    userTeam = userTeam.copyWith(cashCr: userTeam.cashCr + amountCr);
+    _addFinance('$source credit', amountCr, 'iap_bonus');
+    statusBanner = 'Purchase credited: +₹${amountCr.toStringAsFixed(1)} Cr.';
     notifyListeners();
   }
 

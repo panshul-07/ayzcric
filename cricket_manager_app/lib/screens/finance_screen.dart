@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../game/game_controller.dart';
 import '../game/game_scope.dart';
 import '../game/models.dart';
+import '../services/iap_scope.dart';
+import '../services/iap_service.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/team_badge.dart';
 
@@ -23,6 +25,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = GameScope.of(context);
+    final iap = IapScope.of(context);
     final ledger = controller.financeLedger;
 
     final income = ledger
@@ -51,19 +54,46 @@ class _FinanceScreenState extends State<FinanceScreen> {
         const SizedBox(height: 8),
         Text('₹${controller.userTeam.cashCr.toStringAsFixed(1)} Cr'),
         const SizedBox(height: 12),
-        if (!controller.adsRemoved) _OwnersPackCard(controller: controller),
-        if (controller.adsRemoved)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Theme.of(context).colorScheme.secondaryContainer,
-            ),
-            child: const Text(
-              'Owner\'s Pack active • Ads removed • All facilities maxed',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
+        ListenableBuilder(
+          listenable: iap,
+          builder: (context, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!controller.adsRemoved)
+                  _OwnersPackCard(controller: controller, iap: iap),
+                if (controller.adsRemoved)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFF0E3023),
+                      border: Border.all(color: const Color(0xFF2AB77D)),
+                    ),
+                    child: const Text(
+                      'Owner\'s Pack active • Ads removed • All facilities maxed',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF84F5C2),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                _CashPackRow(controller: controller, iap: iap),
+                if (iap.lastError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    iap.lastError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
         const SizedBox(height: 14),
         _FacilityCard(
           title: 'Stadium',
@@ -535,20 +565,22 @@ class _FinanceScreenState extends State<FinanceScreen> {
 }
 
 class _OwnersPackCard extends StatelessWidget {
-  const _OwnersPackCard({required this.controller});
+  const _OwnersPackCard({required this.controller, required this.iap});
 
   final GameController controller;
+  final IapService iap;
 
   @override
   Widget build(BuildContext context) {
+    final canBuy = iap.storeAvailable && !iap.loading;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
-          colors: [Color(0xFF33240F), Color(0xFF5A3D13)],
+          colors: [Color(0xFF102D1F), Color(0xFF1C4D34)],
         ),
-        border: Border.all(color: const Color(0xFFC39B2E)),
+        border: Border.all(color: const Color(0xFF2AB77D)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,22 +595,99 @@ class _OwnersPackCard extends StatelessWidget {
           const SizedBox(height: 4),
           const Text(
             'Max all facilities + ₹20 Cr bonus + remove ads',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: Color(0xFFB8E7D1)),
           ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF4BE2A),
-                foregroundColor: Colors.black,
+                backgroundColor: const Color(0xFF36D399),
+                foregroundColor: const Color(0xFF03281B),
               ),
-              onPressed: controller.buyOwnersPack,
-              child: const Text('₹9.50 Cr'),
+              onPressed: canBuy
+                  ? () => iap.buyProduct(IapService.ownersPackId)
+                  : null,
+              child: Text(iap.displayPrice(IapService.ownersPackId)),
             ),
           ),
+          if (!iap.storeAvailable) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Play Billing unavailable here. Use Android/iOS build.',
+              style: TextStyle(color: Color(0xFFAEE5CF), fontSize: 12),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _CashPackRow extends StatelessWidget {
+  const _CashPackRow({required this.controller, required this.iap});
+
+  final GameController controller;
+  final IapService iap;
+
+  @override
+  Widget build(BuildContext context) {
+    final packs = IapService.catalog.where((c) => c.cashCr > 0).toList();
+    return Column(
+      children: [
+        for (final pack in packs)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F251A), Color(0xFF15412C)],
+              ),
+              border: Border.all(color: const Color(0xFF248B62)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pack.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        '+₹${pack.cashCr.toStringAsFixed(0)} Cr auction budget',
+                        style: const TextStyle(color: Color(0xFFA9DFC7)),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5DE2A7),
+                    foregroundColor: const Color(0xFF053324),
+                  ),
+                  onPressed: iap.storeAvailable && !iap.loading
+                      ? () => iap.buyProduct(pack.id)
+                      : null,
+                  child: Text(iap.displayPrice(pack.id)),
+                ),
+              ],
+            ),
+          ),
+        if (iap.storeAvailable && !controller.adsRemoved)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: iap.restorePurchases,
+              child: const Text('Restore purchases'),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -694,6 +803,7 @@ class _FacilityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxed = level >= maxLevel;
     return Card(
+      color: const Color(0xFF0E1F17),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -701,22 +811,37 @@ class _FacilityCard extends StatelessWidget {
           children: [
             Text(
               title.toUpperCase(),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF87E8BE),
+              ),
             ),
             const SizedBox(height: 6),
-            Text(description),
+            Text(description, style: const TextStyle(color: Color(0xFF9BCDB8))),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Lvl $level/$maxLevel',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFBEEFD8),
+                    ),
                   ),
                 ),
-                FilledButton(onPressed: maxed ? null : onTap, child: Text(cta)),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: maxed
+                        ? const Color(0xFF2C3A34)
+                        : const Color(0xFF2AB77D),
+                    foregroundColor: maxed
+                        ? const Color(0xFFB0BBB6)
+                        : const Color(0xFF06281C),
+                  ),
+                  onPressed: maxed ? null : onTap,
+                  child: Text(cta),
+                ),
               ],
             ),
           ],
