@@ -39,6 +39,7 @@ class GameController extends ChangeNotifier {
 
   String statusBanner = 'Welcome, Chairman. Build your dynasty.';
   String? impactCandidateId;
+  String? clubCaptainId;
   bool adsRemoved = false;
   int stadiumLevel = 1;
   int trainingLevel = 1;
@@ -170,6 +171,9 @@ class GameController extends ChangeNotifier {
     fixtures = _seed.createFixtures(userTeam.name);
     auctionLots = _seed.createAuctionLots();
     youthAcademy = _createYouthAcademy();
+    if (userTeam.squad.isNotEmpty) {
+      clubCaptainId = userTeam.squad.first.id;
+    }
     objectives = _defaultObjectives();
     if (fanTrendCareer.isEmpty) {
       fanTrendCareer.add(userTeam.fans);
@@ -264,6 +268,14 @@ class GameController extends ChangeNotifier {
     if (impactCandidateId == null) return null;
     for (final p in userTeam.squad) {
       if (p.id == impactCandidateId) return p;
+    }
+    return null;
+  }
+
+  Player? get clubCaptain {
+    if (clubCaptainId == null) return null;
+    for (final player in userTeam.squad) {
+      if (player.id == clubCaptainId) return player;
     }
     return null;
   }
@@ -486,6 +498,54 @@ class GameController extends ChangeNotifier {
 
     statusBanner = 'Franchise identity updated to $newName.';
     _log('Updated franchise branding and identity.');
+    notifyListeners();
+  }
+
+  void chooseFranchiseFromTemplate(String teamName) {
+    final branding = defaultTeamBrandings[teamName];
+    if (branding == null) {
+      statusBanner = 'Unknown franchise template: $teamName';
+      notifyListeners();
+      return;
+    }
+
+    final split = _splitFranchise(teamName);
+    teamFranchise = split.$1;
+    teamSuffix = split.$2;
+    teamAbbreviation = teamName
+        .split(RegExp(r'\\s+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0])
+        .take(3)
+        .join()
+        .toUpperCase();
+
+    userTeam = userTeam.copyWith(
+      name: teamName,
+      shortName: teamAbbreviation,
+      branding: branding,
+      morale: (userTeam.morale + 2).clamp(30, 99),
+    );
+
+    standings = _seed.createStandings(teamName);
+    fixtures = _seed.createFixtures(teamName);
+    statusBanner = '$teamName selected. The franchise awaits, Chairman.';
+    notifyListeners();
+  }
+
+  void setClubCaptain(String playerId) {
+    final exists = userTeam.squad.any((p) => p.id == playerId);
+    if (!exists) return;
+    clubCaptainId = playerId;
+    final captain = clubCaptain;
+    if (captain != null) {
+      statusBanner = '${captain.name} confirmed as club captain.';
+      _unlockAchievement(
+        id: 'captain_selected',
+        title: 'Armband Ready',
+        description: '${captain.name} was appointed club captain.',
+      );
+    }
     notifyListeners();
   }
 
@@ -1498,6 +1558,7 @@ class GameController extends ChangeNotifier {
     youthSignings = 0;
     fired = false;
     impactCandidateId = null;
+    clubCaptainId = null;
     adsRemoved = false;
     stadiumLevel = 1;
     trainingLevel = 1;

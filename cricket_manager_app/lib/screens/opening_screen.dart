@@ -39,7 +39,7 @@ class _OpeningScreenState extends State<OpeningScreen> {
               'Cricket\nChairman',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 54,
+                fontSize: 44,
                 height: 0.94,
                 fontWeight: FontWeight.w900,
               ),
@@ -243,7 +243,7 @@ class _OpeningScreenState extends State<OpeningScreen> {
         style: const TextStyle(
           color: Color(0xFFE9EDF3),
           fontWeight: FontWeight.w700,
-          fontSize: 29,
+          fontSize: 24,
         ),
       ),
       trailing: const Icon(

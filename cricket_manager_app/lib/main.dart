@@ -6,6 +6,7 @@ import 'game/models.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/finance_screen.dart';
 import 'screens/league_screen.dart';
+import 'screens/new_game_setup_screen.dart';
 import 'screens/opening_screen.dart';
 import 'screens/squad_screen.dart';
 import 'services/iap_scope.dart';
@@ -27,6 +28,7 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
   late final IapService _iapService;
   int _index = 0;
   bool _inGame = false;
+  bool _newGameSetup = false;
   bool _achievementShowing = false;
 
   @override
@@ -213,23 +215,31 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
                     ],
                   ),
                 )
-              : Scaffold(
-                  body: SafeArea(
-                    child: OpeningScreen(
-                      onContinue: () => setState(() {
-                        _index = 0;
-                        _inGame = true;
-                      }),
-                      onNewGame: () {
-                        _controller.restartCareer();
-                        setState(() {
+              : (_newGameSetup
+                    ? NewGameSetupScreen(
+                        onCancel: () => setState(() => _newGameSetup = false),
+                        onComplete: () => setState(() {
                           _index = 0;
                           _inGame = true;
-                        });
-                      },
-                    ),
-                  ),
-                ),
+                          _newGameSetup = false;
+                        }),
+                      )
+                    : Scaffold(
+                        body: SafeArea(
+                          child: OpeningScreen(
+                            onContinue: () => setState(() {
+                              _index = 0;
+                              _inGame = true;
+                            }),
+                            onNewGame: () {
+                              _controller.restartCareer();
+                              setState(() {
+                                _newGameSetup = true;
+                              });
+                            },
+                          ),
+                        ),
+                      )),
         ),
       ),
     );
