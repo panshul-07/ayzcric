@@ -6,6 +6,7 @@ import 'game/models.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/finance_screen.dart';
 import 'screens/league_screen.dart';
+import 'screens/opening_screen.dart';
 import 'screens/squad_screen.dart';
 import 'services/iap_scope.dart';
 import 'services/iap_service.dart';
@@ -25,6 +26,7 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
   late final GameController _controller;
   late final IapService _iapService;
   int _index = 0;
+  bool _inGame = false;
   bool _achievementShowing = false;
 
   @override
@@ -171,32 +173,63 @@ class _CricketManagerAppState extends State<CricketManagerApp> {
             ),
           ),
           themeMode: ThemeMode.dark,
-          home: Scaffold(
-            body: SafeArea(child: pages[_index]),
-            bottomNavigationBar: NavigationBar(
-              height: 70,
-              selectedIndex: _index,
-              onDestinationSelected: (index) => setState(() => _index = index),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_rounded),
-                  label: 'Home',
+          builder: (context, child) {
+            final media = MediaQuery.of(context);
+            return MediaQuery(
+              data: media.copyWith(
+                textScaler: media.textScaler.clamp(
+                  minScaleFactor: 0.9,
+                  maxScaleFactor: 1.15,
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.groups_rounded),
-                  label: 'Team',
+              ),
+              child: child!,
+            );
+          },
+          home: _inGame
+              ? Scaffold(
+                  body: SafeArea(child: pages[_index]),
+                  bottomNavigationBar: NavigationBar(
+                    height: 70,
+                    selectedIndex: _index,
+                    onDestinationSelected: (index) =>
+                        setState(() => _index = index),
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.home_rounded),
+                        label: 'Home',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.groups_rounded),
+                        label: 'Team',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.emoji_events_outlined),
+                        label: 'League',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.apartment_rounded),
+                        label: 'Club',
+                      ),
+                    ],
+                  ),
+                )
+              : Scaffold(
+                  body: SafeArea(
+                    child: OpeningScreen(
+                      onContinue: () => setState(() {
+                        _index = 0;
+                        _inGame = true;
+                      }),
+                      onNewGame: () {
+                        _controller.restartCareer();
+                        setState(() {
+                          _index = 0;
+                          _inGame = true;
+                        });
+                      },
+                    ),
+                  ),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.emoji_events_outlined),
-                  label: 'League',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.apartment_rounded),
-                  label: 'Club',
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
