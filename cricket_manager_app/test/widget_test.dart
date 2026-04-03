@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('app boots to dashboard', (WidgetTester tester) async {
     await tester.pumpWidget(const CricketManagerApp());
-    expect(find.text('Cricket Dynasty Manager'), findsOneWidget);
-    expect(find.text('Season 2026 Command Center'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Command Center'), findsOneWidget);
+    expect(find.textContaining('Season 2026'), findsOneWidget);
   });
 }

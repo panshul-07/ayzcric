@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../game/game_controller.dart';
 import '../game/game_scope.dart';
 import '../game/models.dart';
+import 'auction_screen.dart';
+import 'career_screen.dart';
 import '../services/iap_scope.dart';
 import '../services/iap_service.dart';
 import '../widgets/stat_card.dart';
@@ -53,6 +55,32 @@ class _FinanceScreenState extends State<FinanceScreen> {
         ),
         const SizedBox(height: 8),
         Text('₹${controller.userTeam.cashCr.toStringAsFixed(1)} Cr'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _ClubAction(
+                title: 'Auction',
+                subtitle: 'Sign new talent',
+                icon: Icons.gavel,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AuctionScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ClubAction(
+                title: 'Career',
+                subtitle: 'Board + academy',
+                icon: Icons.workspace_premium,
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const CareerScreen())),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         ListenableBuilder(
           listenable: iap,
@@ -688,6 +716,60 @@ class _CashPackRow extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ClubAction extends StatelessWidget {
+  const _ClubAction({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: const Color(0xFF171A1F),
+          border: Border.all(color: const Color(0xFF2B313A)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF58D48C)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Color(0xFF9AA4B2)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

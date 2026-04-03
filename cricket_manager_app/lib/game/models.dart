@@ -421,6 +421,21 @@ class FinanceEntry {
 }
 
 @immutable
+class UnlockedAchievement {
+  const UnlockedAchievement({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.unlockedAt,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+  final DateTime unlockedAt;
+}
+
+@immutable
 class BoardObjective {
   const BoardObjective({
     required this.id,

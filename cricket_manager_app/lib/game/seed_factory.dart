@@ -8,16 +8,16 @@ class SeedFactory {
   final Random _random;
 
   static const List<String> clubNames = <String>[
-    'Chennai Super Kings',
-    'Delhi Capitals',
-    'Gujarat Titans',
-    'Kolkata Knight Riders',
-    'Lucknow Super Giants',
-    'Mumbai Indians',
-    'Punjab Kings',
-    'Rajasthan Royals',
-    'Royal Challengers Bengaluru',
-    'Sunrisers Hyderabad',
+    'Mumbai Monsoons',
+    'Chennai Cobras',
+    'Delhi Phantoms',
+    'Bangalore Bolts',
+    'Kolkata Cyclones',
+    'Hyderabad Falcons',
+    'Rajasthan Scorpions',
+    'Punjab Stallions',
+    'Gujarat Vipers',
+    'Lucknow Tridents',
   ];
 
   static const List<String> firstNames = <String>[
@@ -173,14 +173,14 @@ class SeedFactory {
     );
 
     return TeamProfile(
-      name: 'Royal Challengers Bengaluru',
-      shortName: 'RCB',
+      name: 'Mumbai Monsoons',
+      shortName: 'MM',
       branding: const TeamBranding(
-        shape: TeamBadgeShape.circle,
-        pattern: TeamBadgePattern.chevron,
-        emblem: TeamBadgeEmblem.bolt,
-        primaryColor: 0xFFD32F2F,
-        secondaryColor: 0xFFFFC107,
+        shape: TeamBadgeShape.shield,
+        pattern: TeamBadgePattern.band,
+        emblem: TeamBadgeEmblem.anchor,
+        primaryColor: 0xFF1E5AA8,
+        secondaryColor: 0xFF66A7F2,
         accentColor: 0xFFFFFFFF,
       ),
       squad: players,

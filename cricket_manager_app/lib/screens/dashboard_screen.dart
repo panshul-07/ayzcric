@@ -2,427 +2,346 @@ import 'package:flutter/material.dart';
 
 import '../game/game_controller.dart';
 import '../game/game_scope.dart';
-import '../game/models.dart';
-import '../widgets/stat_card.dart';
+import '../screens/auction_screen.dart';
+import '../screens/career_screen.dart';
+import '../screens/match_center_screen.dart';
 import '../widgets/team_badge.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  int tabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     final controller = GameScope.of(context);
-    final sortedTable = List<TeamStanding>.of(controller.standings)
-      ..sort((a, b) {
-        final byPoints = b.points.compareTo(a.points);
-        if (byPoints != 0) return byPoints;
-        return b.netRunRate.compareTo(a.netRunRate);
-      });
-
     final fixture = controller.nextFixture;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Season ${controller.seasonYear} Command Center',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+          'Command Center',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
-          controller.statusBanner,
-          style: Theme.of(context).textTheme.bodyMedium,
+          'Season ${controller.seasonYear} • MD ${controller.matchesPlayed + 1}',
+          style: const TextStyle(color: Color(0xFF9AA4B2)),
         ),
         const SizedBox(height: 14),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: 170,
-              child: StatCard(
-                title: 'Purse',
-                value: '₹${controller.userTeam.cashCr.toStringAsFixed(1)} Cr',
-                subtitle: 'Sponsor Tier ${controller.userTeam.sponsorLevel}',
-              ),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF274E3D), Color(0xFF21382E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            SizedBox(
-              width: 170,
-              child: StatCard(
-                title: 'Fanbase',
-                value: controller.userTeam.fans.toString(),
-                subtitle: 'Morale ${controller.userTeam.morale}',
+            border: Border.all(color: const Color(0xFF2F6954)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  TeamBadge(branding: controller.userTeam.branding, size: 52),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          controller.userTeam.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'League pos: ${_rankOf(controller)}/${controller.standings.length}',
+                          style: const TextStyle(color: Color(0xFFCBE8DA)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!controller.adsRemoved)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1F26),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Owner\'s Pack',
+                        style: TextStyle(color: Color(0xFF7DEAB6)),
+                      ),
+                    ),
+                ],
               ),
-            ),
-            SizedBox(
-              width: 170,
-              child: StatCard(
-                title: 'Record',
-                value:
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _metric(
+                    'Cash',
+                    '₹${controller.userTeam.cashCr.toStringAsFixed(1)} Cr',
+                  ),
+                  const SizedBox(width: 8),
+                  _metric(
+                    'Fans',
+                    '${(controller.userTeam.fans / 1000).toStringAsFixed(1)}K',
+                  ),
+                  const SizedBox(width: 8),
+                  _metric(
+                    'Record',
                     '${controller.userTeam.wins}-${controller.userTeam.losses}',
-                subtitle: '${controller.userTeam.points} pts',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                controller.statusBanner,
+                style: const TextStyle(color: Color(0xFFD3EFE2)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171A1F),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF252B33)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'NEXT FIXTURE',
+                style: TextStyle(
+                  color: Color(0xFFD0D5DD),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (fixture == null)
+                const Text(
+                  'Season complete. Open Club tab and advance season.',
+                  style: TextStyle(color: Color(0xFF9AA4B2)),
+                )
+              else
+                Row(
+                  children: [
+                    TeamBadge(
+                      branding: controller.teamBrandingFor(
+                        controller.userTeam.name,
+                      ),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'vs',
+                      style: TextStyle(color: Color(0xFF9AA4B2)),
+                    ),
+                    const SizedBox(width: 8),
+                    TeamBadge(
+                      branding: controller.teamBrandingFor(fixture.opponent),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${fixture.opponent} • ${fixture.home ? 'Home' : 'Away'}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFF46A2F),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        if (controller.liveMatch == null ||
+                            controller.liveMatch!.completed) {
+                          controller.startNextMatch();
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const MatchCenterScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.play_circle_fill),
+                      label: Text(
+                        controller.liveMatch == null ? 'Play' : 'Open',
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.gavel,
+                title: 'Auction Room',
+                subtitle: 'Bid and reshape squad',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AuctionScreen()),
+                ),
               ),
             ),
-            SizedBox(
-              width: 170,
-              child: StatCard(
-                title: 'Season',
-                value:
-                    '${controller.matchesPlayed}/${controller.fixtures.length} played',
-                subtitle: '${controller.matchesRemaining} left',
+            const SizedBox(width: 10),
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.workspace_premium,
+                title: 'Career Board',
+                subtitle: 'Objectives and progression',
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const CareerScreen())),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 18),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Next Fixture',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                if (fixture != null)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Round ${fixture.round}: ${fixture.home ? 'Home' : 'Away'} vs ${fixture.opponent}',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed:
-                            controller.liveMatch != null &&
-                                !controller.liveMatch!.completed
-                            ? null
-                            : controller.startNextMatch,
-                        icon: const Icon(Icons.sports_cricket),
-                        label: Text(
-                          controller.liveMatch == null
-                              ? 'Start Match'
-                              : 'Match Active',
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  const Text(
-                    'All fixtures completed. Advance season from Career tab.',
-                  ),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'League',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      _LeagueTabChip(
-                        label: 'Standings',
-                        selected: tabIndex == 0,
-                        onTap: () => setState(() => tabIndex = 0),
-                      ),
-                      _LeagueTabChip(
-                        label: 'Fixtures',
-                        selected: tabIndex == 1,
-                        onTap: () => setState(() => tabIndex = 1),
-                      ),
-                      _LeagueTabChip(
-                        label: 'Top Players',
-                        selected: tabIndex == 2,
-                        onTap: () => setState(() => tabIndex = 2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (tabIndex == 0)
-                  _StandingsList(
-                    sortedTable: sortedTable,
-                    userTeamName: controller.userTeam.name,
-                    controller: controller,
-                  ),
-                if (tabIndex == 1) _FixturesList(fixtures: controller.fixtures),
-                if (tabIndex == 2)
-                  _TopPlayersList(cards: controller.leagueTopCards),
-              ],
-            ),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171A1F),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF252B33)),
           ),
-        ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Franchise Records',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'ACHIEVEMENTS',
+                style: TextStyle(
+                  color: Color(0xFFD0D5DD),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
                 ),
-                const SizedBox(height: 10),
-                for (final record in controller.franchiseRecords)
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${controller.unlockedAchievementCount} unlocked',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (controller.unlockedAchievements.isEmpty)
+                const Text(
+                  'Win matches, build academy, and hit milestones to unlock medals.',
+                  style: TextStyle(color: Color(0xFF9AA4B2)),
+                )
+              else
+                for (final achievement in controller.unlockedAchievements.take(
+                  3,
+                ))
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerLow,
-                      ),
-                      child: ListTile(
-                        title: Text(record.title),
-                        subtitle: Text(
-                          record.holder == '-'
-                              ? 'No record yet'
-                              : '${record.holder} • S${record.season}',
-                        ),
-                        trailing: Text(
-                          record.value,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '• ${achievement.title}: ${achievement.description}',
+                      style: const TextStyle(color: Color(0xFFBFD5CA)),
                     ),
                   ),
-              ],
-            ),
+            ],
           ),
         ),
       ],
     );
   }
-}
 
-class _LeagueTabChip extends StatelessWidget {
-  const _LeagueTabChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  static int _rankOf(GameController controller) {
+    final sorted = [...controller.standings]
+      ..sort((a, b) {
+        final byPoints = b.points.compareTo(a.points);
+        if (byPoints != 0) return byPoints;
+        return b.netRunRate.compareTo(a.netRunRate);
+      });
+    return sorted.indexWhere((row) => row.name == controller.userTeam.name) + 1;
+  }
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  static Widget _metric(String label, String value) {
     return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: selected
-                ? Theme.of(context).colorScheme.surface
-                : Colors.transparent,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: selected
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF172B22),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Color(0xFF98B5A8))),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
-}
 
-class _StandingsList extends StatelessWidget {
-  const _StandingsList({
-    required this.sortedTable,
-    required this.userTeamName,
-    required this.controller,
-  });
-
-  final List<TeamStanding> sortedTable;
-  final String userTeamName;
-  final GameController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int i = 0; i < sortedTable.length; i++)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: i < 4
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: 0.35)
-                  : Theme.of(context).colorScheme.surfaceContainerLow,
-              border: Border.all(
-                color: sortedTable[i].name == userTeamName
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.transparent,
-              ),
-            ),
-            child: ListTile(
-              dense: true,
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${i + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(width: 6),
-                  TeamBadge(
-                    branding: controller.teamBrandingFor(sortedTable[i].name),
-                    size: 28,
-                  ),
-                ],
-              ),
-              title: Text(sortedTable[i].name),
-              subtitle: Text(
-                'P ${sortedTable[i].played}  W ${sortedTable[i].wins}  Pts ${sortedTable[i].points}',
-              ),
-              trailing: Text(
-                sortedTable[i].netRunRate >= 0
-                    ? '+${sortedTable[i].netRunRate.toStringAsFixed(2)}'
-                    : sortedTable[i].netRunRate.toStringAsFixed(2),
-                style: TextStyle(
-                  color: sortedTable[i].netRunRate >= 0
-                      ? Colors.green
-                      : Colors.red,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        const SizedBox(height: 4),
-        Text(
-          '--------- Playoff Cutoff ---------',
-          style: Theme.of(context).textTheme.bodySmall,
+  static Widget _actionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFF171A1F),
+          border: Border.all(color: const Color(0xFF252B33)),
         ),
-      ],
-    );
-  }
-}
-
-class _FixturesList extends StatelessWidget {
-  const _FixturesList({required this.fixtures});
-
-  final List<Fixture> fixtures;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (final fixture in fixtures)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: fixture.played
-                  ? Theme.of(context).colorScheme.surfaceContainerLow
-                  : Theme.of(
-                      context,
-                    ).colorScheme.secondaryContainer.withValues(alpha: 0.35),
-            ),
-            child: ListTile(
-              title: Text(
-                'Round ${fixture.round}: ${fixture.home ? 'Home' : 'Away'} vs ${fixture.opponent}',
-              ),
-              subtitle: Text(fixture.resultSummary ?? 'Upcoming'),
-              trailing: Icon(
-                fixture.played
-                    ? (fixture.won == true ? Icons.check_circle : Icons.cancel)
-                    : Icons.schedule,
-                color: fixture.played
-                    ? (fixture.won == true ? Colors.green : Colors.red)
-                    : Theme.of(context).colorScheme.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFFFB8B5E)),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TopPlayersList extends StatelessWidget {
-  const _TopPlayersList({required this.cards});
-
-  final List<Map<String, Object>> cards;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (final card in cards)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-            ),
-            child: ListTile(
-              title: Text(
-                card['title'] as String,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text('${card['badge']} • ${card['player']}'),
-              trailing: Text(
-                card['value'] as String,
-                style: TextStyle(
-                  color: Color(card['color'] as int),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-          ),
-      ],
+            const SizedBox(height: 2),
+            Text(subtitle, style: const TextStyle(color: Color(0xFF9AA4B2))),
+          ],
+        ),
+      ),
     );
   }
 }

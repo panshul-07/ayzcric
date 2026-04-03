@@ -44,6 +44,7 @@ class GameController extends ChangeNotifier {
   int trainingLevel = 1;
   int medicalLevel = 1;
   int scoutingLevel = 1;
+  int academyLevel = 1;
 
   final Map<String, int> fanMovementSeason = <String, int>{
     'Rivalry Swings': 0,
@@ -60,89 +61,93 @@ class GameController extends ChangeNotifier {
   double fanRevenueSeasonCr = 0;
   double fanRevenueCareerCr = 0;
 
-  String teamFranchise = 'Royal Challengers';
-  String teamSuffix = 'Bengaluru';
-  String teamAbbreviation = 'RCB';
+  String teamFranchise = 'Mumbai';
+  String teamSuffix = 'Monsoons';
+  String teamAbbreviation = 'MM';
+
+  final Map<String, UnlockedAchievement> _unlockedAchievements =
+      <String, UnlockedAchievement>{};
+  final List<UnlockedAchievement> _achievementQueue = <UnlockedAchievement>[];
 
   static const Map<String, TeamBranding> defaultTeamBrandings = {
-    'Chennai Super Kings': TeamBranding(
+    'Mumbai Monsoons': TeamBranding(
       shape: TeamBadgeShape.shield,
       pattern: TeamBadgePattern.band,
-      emblem: TeamBadgeEmblem.star,
-      primaryColor: 0xFFF9C70B,
-      secondaryColor: 0xFF1E88E5,
+      emblem: TeamBadgeEmblem.anchor,
+      primaryColor: 0xFF145CB5,
+      secondaryColor: 0xFF62B4FF,
       accentColor: 0xFFFFFFFF,
     ),
-    'Delhi Capitals': TeamBranding(
+    'Chennai Cobras': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.crown,
+      primaryColor: 0xFFE3B111,
+      secondaryColor: 0xFF2E6FC2,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Delhi Phantoms': TeamBranding(
       shape: TeamBadgeShape.hexagon,
       pattern: TeamBadgePattern.diagonal,
-      emblem: TeamBadgeEmblem.crown,
-      primaryColor: 0xFF114AA3,
-      secondaryColor: 0xFFE53935,
+      emblem: TeamBadgeEmblem.bolt,
+      primaryColor: 0xFFD53E45,
+      secondaryColor: 0xFF3291F0,
       accentColor: 0xFFFFFFFF,
     ),
-    'Gujarat Titans': TeamBranding(
-      shape: TeamBadgeShape.shield,
-      pattern: TeamBadgePattern.band,
-      emblem: TeamBadgeEmblem.sword,
-      primaryColor: 0xFF1B2A49,
-      secondaryColor: 0xFFC9A349,
-      accentColor: 0xFFFFFFFF,
+    'Bangalore Bolts': TeamBranding(
+      shape: TeamBadgeShape.hexagon,
+      pattern: TeamBadgePattern.diagonal,
+      emblem: TeamBadgeEmblem.bolt,
+      primaryColor: 0xFFDF3B3E,
+      secondaryColor: 0xFF171A25,
+      accentColor: 0xFFFFE567,
     ),
-    'Kolkata Knight Riders': TeamBranding(
+    'Kolkata Cyclones': TeamBranding(
       shape: TeamBadgeShape.diamond,
       pattern: TeamBadgePattern.chevron,
       emblem: TeamBadgeEmblem.star,
-      primaryColor: 0xFF5B2D90,
-      secondaryColor: 0xFFFBC02D,
+      primaryColor: 0xFF7A33D4,
+      secondaryColor: 0xFFFCC32C,
       accentColor: 0xFFFFFFFF,
     ),
-    'Lucknow Super Giants': TeamBranding(
-      shape: TeamBadgeShape.shield,
-      pattern: TeamBadgePattern.band,
-      emblem: TeamBadgeEmblem.anchor,
-      primaryColor: 0xFF1E88E5,
-      secondaryColor: 0xFFF9A825,
-      accentColor: 0xFFFFFFFF,
-    ),
-    'Mumbai Indians': TeamBranding(
-      shape: TeamBadgeShape.circle,
-      pattern: TeamBadgePattern.chevron,
-      emblem: TeamBadgeEmblem.anchor,
-      primaryColor: 0xFF1565C0,
-      secondaryColor: 0xFFFFD54F,
-      accentColor: 0xFFFFFFFF,
-    ),
-    'Punjab Kings': TeamBranding(
-      shape: TeamBadgeShape.circle,
-      pattern: TeamBadgePattern.chevron,
-      emblem: TeamBadgeEmblem.sword,
-      primaryColor: 0xFFD32F2F,
-      secondaryColor: 0xFFFBC02D,
-      accentColor: 0xFFFFFFFF,
-    ),
-    'Rajasthan Royals': TeamBranding(
-      shape: TeamBadgeShape.pentagon,
-      pattern: TeamBadgePattern.diagonal,
-      emblem: TeamBadgeEmblem.crown,
-      primaryColor: 0xFFEC407A,
-      secondaryColor: 0xFF5C6BC0,
-      accentColor: 0xFFFFFFFF,
-    ),
-    'Royal Challengers Bengaluru': TeamBranding(
-      shape: TeamBadgeShape.circle,
-      pattern: TeamBadgePattern.chevron,
-      emblem: TeamBadgeEmblem.bolt,
-      primaryColor: 0xFFD32F2F,
-      secondaryColor: 0xFFFFC107,
-      accentColor: 0xFFFFFFFF,
-    ),
-    'Sunrisers Hyderabad': TeamBranding(
+    'Hyderabad Falcons': TeamBranding(
       shape: TeamBadgeShape.circle,
       pattern: TeamBadgePattern.band,
       emblem: TeamBadgeEmblem.star,
-      primaryColor: 0xFFEF6C00,
-      secondaryColor: 0xFF212121,
+      primaryColor: 0xFFFE7A1E,
+      secondaryColor: 0xFF23262F,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Rajasthan Scorpions': TeamBranding(
+      shape: TeamBadgeShape.pentagon,
+      pattern: TeamBadgePattern.diagonal,
+      emblem: TeamBadgeEmblem.sword,
+      primaryColor: 0xFF2A58C8,
+      secondaryColor: 0xFFF53885,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Punjab Stallions': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.diagonal,
+      emblem: TeamBadgeEmblem.star,
+      primaryColor: 0xFFD93D45,
+      secondaryColor: 0xFFF2C02C,
+      accentColor: 0xFF121212,
+    ),
+    'Gujarat Vipers': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.sword,
+      primaryColor: 0xFF1F5FCA,
+      secondaryColor: 0xFFB09D67,
+      accentColor: 0xFFFFFFFF,
+    ),
+    'Lucknow Tridents': TeamBranding(
+      shape: TeamBadgeShape.shield,
+      pattern: TeamBadgePattern.band,
+      emblem: TeamBadgeEmblem.anchor,
+      primaryColor: 0xFF1A82D8,
+      secondaryColor: 0xFFF08F31,
       accentColor: 0xFFFFFFFF,
     ),
   };
@@ -183,11 +188,14 @@ class GameController extends ChangeNotifier {
   }
 
   List<Player> _createYouthAcademy() {
+    final academyBoost = academyLevel * 2;
     return List<Player>.generate(6, (int i) {
       final raw = _seed.createPlayer(id: 'youth-$seasonYear-$i', inXI: false);
       return raw.copyWith(
         age: 15 + _random.nextInt(4),
-        overall: (raw.overall - 8).clamp(38, 90),
+        overall: (raw.overall - 10 + academyBoost).clamp(38, 93),
+        hitting: (raw.hitting + academyBoost).clamp(34, 96),
+        bowling: (raw.bowling + academyBoost).clamp(34, 96),
         salaryCr: 0.12 + _random.nextDouble() * 0.25,
         marketValueCr: 0.22 + _random.nextDouble() * 0.7,
       );
@@ -265,6 +273,41 @@ class GameController extends ChangeNotifier {
 
   int get fanMovementNet =>
       fanMovementSeason.values.fold<int>(0, (a, b) => a + b);
+
+  int get unlockedAchievementCount => _unlockedAchievements.length;
+
+  List<UnlockedAchievement> get unlockedAchievements =>
+      _unlockedAchievements.values.toList()
+        ..sort((a, b) => b.unlockedAt.compareTo(a.unlockedAt));
+
+  bool get hasQueuedAchievements => _achievementQueue.isNotEmpty;
+
+  UnlockedAchievement? takeNextAchievement() {
+    if (_achievementQueue.isEmpty) return null;
+    return _achievementQueue.removeAt(0);
+  }
+
+  String get academyTierLabel {
+    switch (academyLevel) {
+      case 1:
+        return 'Local Nets';
+      case 2:
+        return 'District Program';
+      case 3:
+        return 'Elite U-19 Pathway';
+      case 4:
+        return 'National Talent Lab';
+      default:
+        return 'Dynasty Academy';
+    }
+  }
+
+  int get academyMaxLevel => 5;
+
+  double get academyUpgradeCost => 1.2 + academyLevel * 1.05;
+
+  double get academyPromotionCost =>
+      (0.55 - ((academyLevel - 1) * 0.05)).clamp(0.25, 0.55);
 
   List<Map<String, Object>> get leagueTopCards {
     final all = <Player>[
@@ -615,12 +658,61 @@ class GameController extends ChangeNotifier {
     }
 
     _applyMatchImpact(result);
+    _evaluateMatchAchievements(result);
     _updateObjectives();
     _log('Round $matchesPlayed: ${result.summary}');
     statusBanner = result.summary;
 
     if (seasonComplete) {
       _finishSeasonObjectives();
+    }
+  }
+
+  void _evaluateMatchAchievements(MatchResult result) {
+    if (result.userWon && userTeam.wins == 1) {
+      _unlockAchievement(
+        id: 'first_win',
+        title: 'First Blood',
+        description: 'Won your first league match as chairman.',
+      );
+    }
+
+    if (result.userInnings.runs >= 200) {
+      _unlockAchievement(
+        id: 'score_200',
+        title: 'Double Tonne',
+        description: 'Posted 200+ in a league innings.',
+      );
+    }
+
+    final userTop = result.userInnings.battingCard.isEmpty
+        ? null
+        : (List<BattingEntry>.of(
+            result.userInnings.battingCard,
+          )..sort((a, b) => b.runs.compareTo(a.runs))).first;
+    if (userTop != null && userTop.runs >= 100) {
+      _unlockAchievement(
+        id: 'centurion',
+        title: 'Centurion',
+        description: '${userTop.name} scored a century.',
+      );
+    } else if (userTop != null && userTop.runs >= 50) {
+      _unlockAchievement(
+        id: 'half_century',
+        title: 'Anchor Point',
+        description: '${userTop.name} completed a fifty.',
+      );
+    }
+
+    final goldenDuck = result.userInnings.battingCard.any(
+      (entry) => entry.out && entry.runs == 0 && entry.balls == 1,
+    );
+    if (goldenDuck) {
+      _unlockAchievement(
+        id: 'golden_duck',
+        title: 'Golden Duck',
+        description: 'A user-team batter fell first ball.',
+      );
     }
   }
 
@@ -741,6 +833,11 @@ class GameController extends ChangeNotifier {
       );
       _addFanMovement('Championship', 8200);
       _addFinance('League champion prize', 8.5, 'income');
+      _unlockAchievement(
+        id: 'league_title',
+        title: 'Silverware',
+        description: 'Finished first and won the league title.',
+      );
       _log('Season $seasonYear ended: Champions.');
       statusBanner = 'Season complete. You finished #1 and won the title.';
     } else {
@@ -760,6 +857,12 @@ class GameController extends ChangeNotifier {
     } else if (completedObjectives == 2) {
       _log('Board decision: Final warning issued.');
       statusBanner = '$statusBanner Board issued a final warning.';
+    } else if (completedObjectives >= 4) {
+      _unlockAchievement(
+        id: 'perfect_board',
+        title: 'Board Favorite',
+        description: 'Completed every board objective in a season.',
+      );
     }
 
     notifyListeners();
@@ -987,11 +1090,49 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void upgradeAcademy() {
+    if (academyLevel >= academyMaxLevel) {
+      statusBanner = 'Academy is already at maximum level.';
+      notifyListeners();
+      return;
+    }
+    final cost = academyUpgradeCost;
+    if (userTeam.cashCr < cost) {
+      statusBanner =
+          'Need ₹${cost.toStringAsFixed(1)} Cr to upgrade academy tier.';
+      notifyListeners();
+      return;
+    }
+
+    academyLevel += 1;
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - cost,
+      morale: (userTeam.morale + 1).clamp(30, 99),
+    );
+    youthAcademy = _createYouthAcademy();
+    _addFinance(
+      'Academy infrastructure upgrade (Tier $academyLevel)',
+      -cost,
+      'academy',
+    );
+    if (academyLevel >= 4) {
+      _unlockAchievement(
+        id: 'academy_architect',
+        title: 'Academy Architect',
+        description: 'Built a high-performance youth pathway.',
+      );
+    }
+    statusBanner = 'Academy upgraded to $academyTierLabel.';
+    notifyListeners();
+  }
+
   void promoteYouthPlayer(String playerId) {
     final idx = youthAcademy.indexWhere((p) => p.id == playerId);
     if (idx == -1) return;
-    if (userTeam.cashCr < 0.45) {
-      statusBanner = 'Need ₹0.45 Cr to promote an academy player.';
+    final promotionCost = academyPromotionCost;
+    if (userTeam.cashCr < promotionCost) {
+      statusBanner =
+          'Need ₹${promotionCost.toStringAsFixed(2)} Cr to promote an academy player.';
       notifyListeners();
       return;
     }
@@ -1000,7 +1141,7 @@ class GameController extends ChangeNotifier {
     final promoted = player.copyWith(
       id: 'academy-${DateTime.now().millisecondsSinceEpoch}',
       age: player.age + 1,
-      overall: (player.overall + 4).clamp(40, 95),
+      overall: (player.overall + 3 + academyLevel).clamp(40, 96),
       form: (player.form + 6).clamp(35, 99),
     );
 
@@ -1016,8 +1157,25 @@ class GameController extends ChangeNotifier {
 
     youthAcademy = updatedAcademy;
     youthSignings += 1;
-    userTeam = userTeam.copyWith(cashCr: userTeam.cashCr - 0.45, squad: squad);
-    _addFinance('Youth promotion: ${promoted.name}', -0.45, 'academy');
+    userTeam = userTeam.copyWith(
+      cashCr: userTeam.cashCr - promotionCost,
+      squad: squad,
+    );
+    _addFinance('Youth promotion: ${promoted.name}', -promotionCost, 'academy');
+    if (promoted.overall >= 82) {
+      _unlockAchievement(
+        id: 'future_icon',
+        title: 'Future Icon',
+        description: '${promoted.name} entered the first team at OVR 82+.',
+      );
+    }
+    if (youthSignings >= 3) {
+      _unlockAchievement(
+        id: 'academy_pipeline',
+        title: 'Academy Pipeline',
+        description: 'Promoted 3 youth players in one career.',
+      );
+    }
     _log('Promoted academy player ${promoted.name}.');
     _updateObjectives();
     statusBanner = 'Academy talent ${promoted.name} promoted to senior squad.';
@@ -1197,6 +1355,16 @@ class GameController extends ChangeNotifier {
     );
 
     _addFinance('Facility upgrade: $facilityId', -cost, 'infrastructure');
+    if (stadiumLevel == facilityMaxLevel('stadium') &&
+        trainingLevel == facilityMaxLevel('training') &&
+        medicalLevel == facilityMaxLevel('medical') &&
+        scoutingLevel == facilityMaxLevel('scouting')) {
+      _unlockAchievement(
+        id: 'infra_master',
+        title: 'Infrastructure Master',
+        description: 'Maxed every club facility.',
+      );
+    }
     statusBanner =
         '$facilityId upgraded to level ${facilityLevel(facilityId)}.';
     notifyListeners();
@@ -1222,6 +1390,11 @@ class GameController extends ChangeNotifier {
     _addFanMovement('Playoff Reputation', 6000);
     _addFinance('Owner\'s Pack purchase', 0, 'iap');
     _addFinance('Owner\'s Pack bonus credit', 20, 'iap_bonus');
+    _unlockAchievement(
+      id: 'owners_pack',
+      title: 'Owner Mode',
+      description: 'Activated Owner\'s Pack and boosted the club.',
+    );
     statusBanner = 'Owner\'s Pack activated. Facilities maxed + ₹20 Cr bonus.';
     notifyListeners();
   }
@@ -1330,6 +1503,9 @@ class GameController extends ChangeNotifier {
     trainingLevel = 1;
     medicalLevel = 1;
     scoutingLevel = 1;
+    academyLevel = 1;
+    _unlockedAchievements.clear();
+    _achievementQueue.clear();
     for (final key in fanMovementSeason.keys) {
       fanMovementSeason[key] = 0;
     }
@@ -1417,6 +1593,23 @@ class GameController extends ChangeNotifier {
       holder: holder,
       season: seasonYear,
     );
+  }
+
+  void _unlockAchievement({
+    required String id,
+    required String title,
+    required String description,
+  }) {
+    if (_unlockedAchievements.containsKey(id)) return;
+    final achievement = UnlockedAchievement(
+      id: id,
+      title: title,
+      description: description,
+      unlockedAt: DateTime.now(),
+    );
+    _unlockedAchievements[id] = achievement;
+    _achievementQueue.add(achievement);
+    _log('Achievement unlocked: $title');
   }
 
   void _addFanMovement(String reason, int delta) {

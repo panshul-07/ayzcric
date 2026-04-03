@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../game/game_controller.dart';
 import '../game/game_scope.dart';
 import '../game/models.dart';
 
@@ -13,6 +14,7 @@ class SquadScreen extends StatefulWidget {
 class _SquadScreenState extends State<SquadScreen> {
   String? selectedPlayerId;
   PlayerRole? roleFilter;
+  int tab = 0; // 0 players, 1 academy
 
   @override
   Widget build(BuildContext context) {
@@ -38,177 +40,347 @@ class _SquadScreenState extends State<SquadScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Squad Management',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        Text('Train players, manage playing XI, and monitor form/fitness.'),
-        if (controller.selectedImpactPlayer != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Impact Player: ${controller.selectedImpactPlayer!.name}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
+          'Team',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ChoiceChip(
-              label: const Text('All Roles'),
-              selected: roleFilter == null,
-              onSelected: (_) => setState(() => roleFilter = null),
-            ),
-            for (final role in PlayerRole.values)
-              ChoiceChip(
-                label: Text(role.label),
-                selected: roleFilter == role,
-                onSelected: (_) => setState(() => roleFilter = role),
-              ),
-          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${controller.userTeam.name} • Academy ${controller.academyTierLabel}',
+          style: const TextStyle(color: Color(0xFF9AA4B2)),
         ),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171A1F),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF252B33)),
+          ),
+          child: Row(
+            children: [
+              _tabCell(
+                label: 'Players',
+                selected: tab == 0,
+                onTap: () => setState(() => tab = 0),
+              ),
+              _tabCell(
+                label: 'Academy',
+                selected: tab == 1,
+                onTap: () => setState(() => tab = 1),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (tab == 0) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('All Roles'),
+                selected: roleFilter == null,
+                onSelected: (_) => setState(() => roleFilter = null),
+              ),
+              for (final role in PlayerRole.values)
+                ChoiceChip(
+                  label: Text(role.label),
+                  selected: roleFilter == role,
+                  onSelected: (_) => setState(() => roleFilter = role),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171A1F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF252B33)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Roster (${controller.userTeam.squad.length})',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  'SQUAD (${controller.userTeam.squad.length})',
+                  style: const TextStyle(
+                    color: Color(0xFFD0D5DD),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 420,
-                  child: ListView.builder(
-                    itemCount: squad.length,
-                    itemBuilder: (context, index) {
-                      final player = squad[index];
-                      final selectedRow = player.id == selectedPlayerId;
-                      return Card(
-                        color: selectedRow
-                            ? Theme.of(context).colorScheme.primaryContainer
-                                  .withValues(alpha: 0.55)
-                            : null,
-                        child: ListTile(
-                          onTap: () =>
-                              setState(() => selectedPlayerId = player.id),
-                          title: Text('${player.name} (${player.role.label})'),
-                          subtitle: Text(
-                            'OVR ${player.overall} | Form ${player.form} | Fit ${player.fitness} | '
-                            'Bat ${player.hitting} / Bowl ${player.bowling}',
-                          ),
-                          trailing: Wrap(
-                            spacing: 6,
-                            children: [
-                              if (player.injured)
-                                const Chip(label: Text('Injured')),
-                              Chip(
-                                label: Text(
-                                  player.inPlayingXI ? 'XI' : 'Bench',
-                                ),
-                              ),
-                            ],
+                for (final player in squad)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: player.id == selectedPlayerId
+                          ? const Color(0xFF2A221F)
+                          : const Color(0xFF101418),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: player.id == selectedPlayerId
+                            ? const Color(0xFFFB8B5E)
+                            : const Color(0xFF202833),
+                      ),
+                    ),
+                    child: ListTile(
+                      onTap: () => setState(() => selectedPlayerId = player.id),
+                      dense: true,
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF2A3039),
+                        child: Text(
+                          _grade(player.overall),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
                           ),
                         ),
-                      );
-                    },
+                      ),
+                      title: Text(
+                        player.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${player.role.label} • Age ${player.age} • OVR ${player.overall}',
+                        style: const TextStyle(color: Color(0xFF9AA4B2)),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${player.salaryCr.toStringAsFixed(1)} Cr',
+                            style: const TextStyle(color: Color(0xFFE6ECF3)),
+                          ),
+                          Text(
+                            player.inPlayingXI ? 'XI' : 'Bench',
+                            style: TextStyle(
+                              color: player.inPlayingXI
+                                  ? const Color(0xFF57D986)
+                                  : const Color(0xFF9AA4B2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (selected != null)
+            _playerControls(controller: controller, player: selected),
+        ],
+        if (tab == 1) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171A1F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF252B33)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ACADEMY TIERS',
+                  style: const TextStyle(
+                    color: Color(0xFFD0D5DD),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  controller.academyTierLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Level ${controller.academyLevel}/${controller.academyMaxLevel} • Promotion cost ₹${controller.academyPromotionCost.toStringAsFixed(2)} Cr',
+                  style: const TextStyle(color: Color(0xFF9AA4B2)),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF57D986),
+                    foregroundColor: const Color(0xFF0F2A1C),
+                  ),
+                  onPressed:
+                      controller.academyLevel >= controller.academyMaxLevel
+                      ? null
+                      : controller.upgradeAcademy,
+                  child: Text(
+                    controller.academyLevel >= controller.academyMaxLevel
+                        ? 'Academy Maxed'
+                        : 'Upgrade Academy • ₹${controller.academyUpgradeCost.toStringAsFixed(1)} Cr',
                   ),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        if (selected != null)
-          Builder(
-            builder: (context) {
-              final player = selected;
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${player!.name} Control Panel',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171A1F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF252B33)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'YOUTH PROSPECTS',
+                  style: TextStyle(
+                    color: Color(0xFFD0D5DD),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final prospect in controller.youthAcademy)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF101418),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF202833)),
+                    ),
+                    child: ListTile(
+                      dense: true,
+                      title: Text(
+                        prospect.name,
+                        style: const TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Age ${player.age} | Market ₹${player.marketValueCr.toStringAsFixed(1)} Cr',
+                      subtitle: Text(
+                        'Age ${prospect.age} • ${prospect.role.label} • OVR ${prospect.overall}',
+                        style: const TextStyle(color: Color(0xFF9AA4B2)),
                       ),
-                      Text(
-                        'Traits: ${player.traits.map((t) => t.name).join(', ')}',
+                      trailing: OutlinedButton(
+                        onPressed: () =>
+                            controller.promoteYouthPlayer(prospect.id),
+                        child: const Text('Promote'),
                       ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.togglePlayingXI(player.id),
-                            child: Text(
-                              player.inPlayingXI
-                                  ? 'Move to Bench'
-                                  : 'Move to XI',
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.trainPlayer(player.id, 'Batting'),
-                            child: const Text('Train Batting (-0.35)'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.trainPlayer(player.id, 'Bowling'),
-                            child: const Text('Train Bowling (-0.35)'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.trainPlayer(player.id, 'Mental'),
-                            child: const Text('Mental Coaching (-0.35)'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                controller.trainPlayer(player.id, 'Fitness'),
-                            child: const Text('Fitness Block (-0.35)'),
-                          ),
-                          OutlinedButton(
-                            onPressed: player.inPlayingXI || player.injured
-                                ? null
-                                : () =>
-                                      controller.setImpactCandidate(player.id),
-                            child: const Text('Set as Impact Player'),
-                          ),
-                          OutlinedButton(
-                            onPressed:
-                                controller.selectedImpactPlayer?.id == player.id
-                                ? () => controller.setImpactCandidate(null)
-                                : null,
-                            child: const Text('Clear Impact'),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
+              ],
+            ),
           ),
+        ],
       ],
     );
+  }
+
+  Widget _tabCell({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          alignment: Alignment.center,
+          height: 38,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: selected ? const Color(0xFF2C333D) : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : const Color(0xFF9AA4B2),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _playerControls({
+    required GameController controller,
+    required Player player,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171A1F),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF252B33)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${player.name} Control',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Traits: ${player.traits.map((t) => t.name).join(', ')}',
+            style: const TextStyle(color: Color(0xFF9AA4B2)),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: () => controller.togglePlayingXI(player.id),
+                child: Text(
+                  player.inPlayingXI ? 'Move to Bench' : 'Move to XI',
+                ),
+              ),
+              OutlinedButton(
+                onPressed: () => controller.trainPlayer(player.id, 'Batting'),
+                child: const Text('Batting'),
+              ),
+              OutlinedButton(
+                onPressed: () => controller.trainPlayer(player.id, 'Bowling'),
+                child: const Text('Bowling'),
+              ),
+              OutlinedButton(
+                onPressed: () => controller.trainPlayer(player.id, 'Mental'),
+                child: const Text('Mental'),
+              ),
+              OutlinedButton(
+                onPressed: () => controller.trainPlayer(player.id, 'Fitness'),
+                child: const Text('Fitness'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _grade(int overall) {
+    if (overall >= 88) return 'A+';
+    if (overall >= 82) return 'A';
+    if (overall >= 76) return 'B+';
+    if (overall >= 70) return 'B';
+    if (overall >= 64) return 'C';
+    return 'D';
   }
 }
